@@ -5,11 +5,10 @@ from rpy2.rinterface_lib.embedded import RRuntimeError
 # Import relevant R packages with exception handling
 def load_packages():
     try:
-        sql_render = importr('SqlRender')
         db_connector = importr('DatabaseConnector')
-        return sql_render, db_connector
+        return db_connector
     except RRuntimeError as e:
-        raise Exception("Error importing R packages 'SqlRender' or 'DatabaseConnector' {e}")
+        raise Exception("Error importing R package 'DatabaseConnector' {e}")
 
 # Function to create a connection to the database using DatabaseConnector in R
 def connect_to_db(dbms: str, server: str, user: str, password: str, database: str, driver_path: str, db_connector):
@@ -51,7 +50,8 @@ def connect_to_db(dbms: str, server: str, user: str, password: str, database: st
     except Exception as e:
         raise Exception(f"An unexpected error occurred while creating the database connection {e}")
 
-# load the packages.
-sql_rend, db_conn = load_packages()
 
-connect_to_db("postgresql", "localhost", "postgres", "Daybme20@me", "ohdsi", "C:/Users/23434813/Desktop/AML data/ohdsi/", db_conn)
+# load the packages.
+db_conn = load_packages()
+
+get_conn = connect_to_db("postgresql", "localhost", "postgres", "Daybme20@me", "ohdsi", "C:/Users/23434813/Desktop/AML data/ohdsi/", db_conn)
