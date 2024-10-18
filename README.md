@@ -10,6 +10,7 @@ Although this project has been primarily tested with PostgreSQL, it may also wor
 
 - Python 3.x
 - PostgreSQL database (for testing, but adaptable for other OHDSI-supported databases)
+- still checking for others
 - Required Python libraries (listed in `requirements.txt`)
 
 ### R Requirements
