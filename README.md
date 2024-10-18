@@ -71,14 +71,13 @@ else:
 
 ### 2. `load_csv.py`
 
-This script loads the OHDSI CDM vocabularies (version 5.3 or 5.4) from CSV files into the CDM tables in the PostgreSQL database.
+This script loads the OHDSI CDM vocabularies (version 5.3 or 5.4) from CSV files into the CDM tables in the database.
 
 #### Key Features:
 - Loads all CSV files for the standardized vocabularies from the specified directory into the corresponding create database. For clarity the database can be created using the executeSQL function from the commondatamodel package. Not minding, we also incorporated it here.
 
 ```python
 from db_connector import DatabaseHandler
-from load_csv import CSVLoader
 
 # Initialize the database connection
 database_connector = DatabaseHandler(
@@ -87,11 +86,12 @@ database_connector = DatabaseHandler(
     user="postgres",
     password="your_password",
     database="ohdsi_cdm",
-    folder_path="optional_path"
+    driver_path="path_to_driver"
 )
 
 # Connect to the CDM database
 db_conn = database_connector.connect_to_db()
+# generate the table in the database
 database_connector.execute_ddl(cdm_version = "value", cdm_database_schema = "schema name")
 ```
 - Uses the active database connection and CDM-compliant table structure.
@@ -135,7 +135,7 @@ database_connector = DatabaseHandler(
     user="postgres",
     password="your_password",
     database="ohdsi_cdm",
-    folder_path="optional_path"
+    driver_path="path_to_driver"
 )
 
 # Connect to the CDM database
@@ -174,7 +174,7 @@ database_connector = DatabaseHandler(
     user=os.getenv('DB_USER'),
     password=os.getenv('DB_PASSWORD'),
     database=os.getenv('DB_NAME'),
-    folder_path="optional_path"
+    driver_path="path_to_driver"
 )
 ```
 
