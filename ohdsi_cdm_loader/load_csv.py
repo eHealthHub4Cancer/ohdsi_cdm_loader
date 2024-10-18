@@ -41,7 +41,7 @@ class CSVLoader:
 
     def get_table_schema(self, table_name: str) -> dict:
         """
-        Retrieve column names and data types from the target PostgreSQL table.
+        Retrieve column names and data types from the target database table.
 
         Args:
             table_name (str): Name of the table.
