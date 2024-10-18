@@ -3,14 +3,14 @@ import pandas as pd
 import rpy2.robjects as robjs
 from rpy2.robjects.packages import importr
 from rpy2.rinterface_lib.embedded import RRuntimeError
-from .db_connector import DBConnector
+from .db_connector import DatabaseHandler
 import logging
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 
 class CSVLoader:
-    def __init__(self, conn: object, schema: str):
+    def __init__(self, conn: object, db_handler: object, schema: str):
         """
         Initialize the CSVLoader class.
 
@@ -20,7 +20,8 @@ class CSVLoader:
         """
         self.conn = conn
         self.schema = schema
-        self.db_connector = DBConnector()
+        self.db_connect = db_handler
+        self.db_connector = self.db_connect.get_db_connector()
         self._load_packages()
 
     def _load_packages(self) -> None:
@@ -61,7 +62,7 @@ class CSVLoader:
         # Extract schema information into a dictionary
         colnames = robjs.r.colnames(result)
         data = {col_name: list(result.rx2(col_name)) for col_name in colnames}
-        return dict(zip(data['column_name'], data['data_type']))
+        return dict(zip(data['COLUMN_NAME'], data['DATA_TYPE']))
 
     def compare_and_convert_data_types(self, rdf: object, schema_dict: dict) -> object:
         """
@@ -105,9 +106,9 @@ class CSVLoader:
             None
         """
         try:
-            self.db_connector.disable_foreign_key_checks(self.conn)
+            self.db_connect.disable_foreign_key_checks()
             # Empty the table.
-            self.db_connector.empty_table(self.conn, self.schema, table_name)
+            self.db_connect.empty_table(self.schema, table_name)
             # Load CSV into R dataframe
             rdf = self.readr.read_delim(file=file_path, delim='\t', col_types=self.readr.cols(), 
             na=robjs.r("character(0)"), progress=False)
@@ -126,7 +127,7 @@ class CSVLoader:
                 progressBar=True,
                 useMppBulkLoad=False
             )
-            self.db_connector.enable_foreign_key_checks(self.conn)
+            self.db_connect.enable_foreign_key_checks()
             logging.info(f"Loaded data into table '{self.schema}.{table_name}'.")
 
         except Exception as e:
@@ -143,31 +144,33 @@ class CSVLoader:
             None
         """
         table_order = [
-            'vocabulary', 'domain', 'concept_class', 'concept',
+            'vocabulary', 
+            'domain', 'concept_class', 'concept',
             'relationship', 'concept_relationship', 'concept_ancestor',
             'concept_synonym', 'drug_strength'
         ]
-
+        print("ooo")
         file_to_table_mapping = {
-            'VOCABULARY.csv': 'vocabulary',
-            'DOMAIN.csv': 'domain',
-            'CONCEPT_CLASS.csv': 'concept_class',
-            'CONCEPT.csv': 'concept',
-            'RELATIONSHIP.csv': 'relationship',
-            'CONCEPT_RELATIONSHIP.csv': 'concept_relationship',
-            'CONCEPT_ANCESTOR.csv': 'concept_ancestor',
-            'CONCEPT_SYNONYM.csv': 'concept_synonym',
-            'DRUG_STRENGTH.csv': 'drug_strength'
+            'vocabulary.csv': 'vocabulary',
+            'domain.csv': 'domain',
+            'concep_class.csv': 'concept_class',
+            'concept.csv': 'concept',
+            'relationship.csv': 'relationship',
+            'concept_relationship.csv': 'concept_relationship',
+            'concept_ancestor.csv': 'concept_ancestor',
+            'concept_synonym.csv': 'concept_synonym',
+            'drug_strength.csv': 'drug_strength'
         }
 
         missing_files = []
 
         for table in table_order:
-            filename = file_to_table_mapping.get(f'{table.upper()}.csv')
+            filename = file_to_table_mapping.get(f'{table}.csv')
             if filename:
-                file_path = os.path.join(folder_path, filename)
+                file_path = os.path.join(folder_path, f'{table.upper()}.csv')
                 if os.path.exists(file_path):
                     try:
+                        print("yes")
                         self.load_csv_to_db(file_path, table)
                     except Exception as e:
                         raise RuntimeError(f"Failed to load '{filename}' into '{table}': {e}")

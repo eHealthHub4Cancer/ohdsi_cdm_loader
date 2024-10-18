@@ -7,7 +7,7 @@ from typing import Optional
 logging.basicConfig(level=logging.INFO)
 
 class DatabaseHandler:
-    def __init__(self, dbms: str, server: str, user: str, password: str, database: str, driver_path: str, db_connector: object):
+    def __init__(self, dbms: str, server: str, user: str, password: str, database: str, driver_path: str):
         """
         Initialize the DatabaseHandler with the given parameters.
 
@@ -25,8 +25,9 @@ class DatabaseHandler:
         self._password = password
         self._database = database
         self._driver_path = driver_path
-        self._db_connector = db_connector
+        self._db_connector = importr('DatabaseConnector')
         self._conn: Optional[object] = None
+        self._conn_details: Optional[object] = None
         self._common_data_model = importr('CommonDataModel')
 
     # Getters and Setters
@@ -73,12 +74,28 @@ class DatabaseHandler:
     def get_driver_path(self) -> str:
         """Get the path to the database driver."""
         return self._driver_path
+    
+    def set_connection(self, conn) -> None:
+        """set the connection"""
+        self._conn = conn
+
+    def get_connection(self) -> object:
+        """Return the connection which has been set"""
+        return self._conn
+    
+    def get_db_connector(self) -> object:
+        """Returns the connector object"""
+        return self._db_connector
 
     def set_driver_path(self, driver_path: str) -> None:
         """Set the path to the database driver."""
         self._driver_path = driver_path
 
-    def connect_to_db(self) -> None:
+    def set_connect_details(self, connect_details) -> None:
+        """set the connection details"""
+        self._conn_details = connect_details
+
+    def connect_to_db(self) -> object:
         """
         Establish a connection to the database.
 
@@ -94,6 +111,10 @@ class DatabaseHandler:
             )
             self._conn = self._db_connector.connect(connection_details)
             logging.info("Database connection established successfully.")
+            self.set_connect_details(connection_details)
+            self.set_connection(self._conn)
+            return self._conn
+            
         except RRuntimeError as e:
             raise Exception(f"Error creating database connection: {e}")
         except Exception as e:
@@ -134,7 +155,7 @@ class DatabaseHandler:
         :raises Exception: If there is an error truncating the table.
         """
         try:
-            query = f"TRUNCATE {schema}.{table_name};"
+            query = f"TRUNCATE {schema}.{table_name} CASCADE;"
             self._db_connector.executeSql(self._conn, query)
             logging.info(f"Table '{schema}.{table_name}' truncated successfully.")
         except Exception as e:
@@ -149,9 +170,8 @@ class DatabaseHandler:
         :raises Exception: If there is an error executing the CDM DDL.
         """
         try:
-            common_data_model = self._common_data_model
-            common_data_model.executeDdl(
-                connectionDetails=self._conn,
+            self._common_data_model.executeDdl(
+                connectionDetails=self._conn_details,
                 cdmVersion=cdm_version,
                 cdmDatabaseSchema=cdm_database_schema
             )
