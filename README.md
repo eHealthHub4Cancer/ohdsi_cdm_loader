@@ -183,10 +183,10 @@ database_connector = DatabaseHandler(
 
 This project is designed to work with OHDSI's Common Data Model (CDM) and standardized vocabularies. The tools and processes used here are compatible with OHDSI standards, and the database loader has been tested specifically for PostgreSQL, though it should work with other databases supported by OHDSI.
 
-[![OHDSI](https://www.ohdsi.org/wp-content/uploads/2022/04/OHDSI-Logo.png)](https://ohdsi.org)  
+[![OHDSI](https://res.cloudinary.com/dc29czhf9/image/upload/v1729287157/h243-ohdsi-logo-with-text_hhymri.png)](https://ohdsi.org)  
 **OHDSI** (Observational Health Data Sciences and Informatics) is a multi-stakeholder, interdisciplinary collaborative that aims to bring out the value of observational health data through large-scale analytics. Learn more about OHDSI and the CDM on the [official OHDSI website](https://ohdsi.org).
 
-[![eHealth Hub Limerick](https://ehealth4cancer.org/wp-content/uploads/2021/12/eHealth4cancer-logo-color.png)](https://ehealth4cancer.org)  
+[![eHealth Hub Limerick](https://res.cloudinary.com/dc29czhf9/image/upload/v1729287084/download_umxgmo.jpg)](https://ehealth4cancer.org)  
 This project was also supported by **eHealth Hub Limerick**, contributing to the development and deployment of health data tools for innovative healthcare solutions. Learn more about eHealth Hub Limerick at [eHealth Hub Limerick's official website](https://ehealth4cancer.org).
 
 ## License
