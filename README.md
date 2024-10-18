@@ -1,13 +1,8 @@
----
-title: "OHDSI CDM Data Loader"
-output: html_document
----
-
 # OHDSI CDM Data Loader
 
-This repository provides scripts to load Common Data Model (CDM) data from OHDSI's standardized vocabularies (version 5.4 or 5.3) into CDM tables in a PostgreSQL database. It is designed for the OHDSI community and those working with OHDSI's Common Data Model for large-scale observational research.
+This repository provides scripts to load Common Data Model (CDM) data from OHDSI's standardized vocabularies (version 5.4 or 5.3) into CDM tables in a relational database. It is designed for the OHDSI community and those working with OHDSI's Common Data Model for large-scale observational research.
 
-Although this project is primarily tested with PostgreSQL, it may also work with other supported databases by OHDSI.
+Although this project has been primarily tested with PostgreSQL, it may also work with other supported databases by OHDSI (still testing).
 
 ## Requirements
 
@@ -23,10 +18,15 @@ Some of the processes and dependencies in the OHDSI environment may require spec
 
 ```r
 # Install OHDSI-specific R packages
+install.packages("devtools")
 install.packages("DatabaseConnector")
 install.packages("SqlRender")
-# Additional packages depending on your OHDSI setup:
-# install.packages("OHDSICDM")  # For working with CDM-related functionality
+devtools::install_github("OHDSI/CommonDataModel")  # For working with CDM-related functionality
+
+# some other packages (not OHDSI specific)
+install.packages("lubridate")
+install.packages("dplyr")
+install.packages("readr")
 ```
 
 ## Install Python Dependencies
@@ -58,7 +58,7 @@ database_connector = DatabaseHandler(
     user="postgres",       # Database user
     password="your_password",  # Database password
     database="ohdsi_cdm",  # OHDSI CDM database
-    folder_path="path_to_folder"  # Optional: folder path for CDM data
+    driver_path="path_to_driver"  # path to driver for selected database
 )
 
 db_conn = database_connector.connect_to_db()
@@ -74,7 +74,26 @@ else:
 This script loads the OHDSI CDM vocabularies (version 5.3 or 5.4) from CSV files into the CDM tables in the PostgreSQL database.
 
 #### Key Features:
-- Loads all CSV files for the standardized vocabularies from the specified directory.
+- Loads all CSV files for the standardized vocabularies from the specified directory into the corresponding create database. For clarity the database can be created using the executeSQL function from the commondatamodel package. Not minding, we also incorporated it here.
+
+```python
+from db_connector import DatabaseHandler
+from load_csv import CSVLoader
+
+# Initialize the database connection
+database_connector = DatabaseHandler(
+    db_type="postgresql",
+    host="localhost",
+    user="postgres",
+    password="your_password",
+    database="ohdsi_cdm",
+    folder_path="optional_path"
+)
+
+# Connect to the CDM database
+db_conn = database_connector.connect_to_db()
+database_connector.execute_ddl(cdm_version = "value", cdm_database_schema = "schema name")
+```
 - Uses the active database connection and CDM-compliant table structure.
 
 #### Example (Python):
@@ -163,7 +182,11 @@ database_connector = DatabaseHandler(
 
 This project is designed to work with OHDSI's Common Data Model (CDM) and standardized vocabularies. The tools and processes used here are compatible with OHDSI standards, and the database loader has been tested specifically for PostgreSQL, though it should work with other databases supported by OHDSI.
 
+[![OHDSI](https://www.ohdsi.org/wp-content/uploads/2022/04/OHDSI-Logo.png)](https://ohdsi.org)  
 **OHDSI** (Observational Health Data Sciences and Informatics) is a multi-stakeholder, interdisciplinary collaborative that aims to bring out the value of observational health data through large-scale analytics. Learn more about OHDSI and the CDM on the [official OHDSI website](https://ohdsi.org).
+
+[![eHealth Hub Limerick](https://ehealth4cancer.org/wp-content/uploads/2021/12/eHealth4cancer-logo-color.png)](https://ehealth4cancer.org)  
+This project was also supported by **eHealth Hub Limerick**, contributing to the development and deployment of health data tools for innovative healthcare solutions. Learn more about eHealth Hub Limerick at [eHealth Hub Limerick's official website](https://ehealth4cancer.org).
 
 ## License
 
