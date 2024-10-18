@@ -86,7 +86,7 @@ class DatabaseHandler:
         """Set the path to the database driver."""
         self._driver_path = driver_path
 
-    def connect_to_db(self) -> None:
+    def connect_to_db(self) -> object:
         """
         Establish a connection to the database.
 
@@ -103,6 +103,7 @@ class DatabaseHandler:
             self._conn = self._db_connector.connect(connection_details)
             logging.info("Database connection established successfully.")
             self.set_connection(self._conn)
+            return self._conn
             
         except RRuntimeError as e:
             raise Exception(f"Error creating database connection: {e}")
