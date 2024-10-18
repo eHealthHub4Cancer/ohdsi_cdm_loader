@@ -2,155 +2,129 @@ import os
 import pandas as pd
 import rpy2.robjects as robjs
 from rpy2.robjects.packages import importr
-from rpy2.robjects import default_converter
-from rpy2.robjects.conversion import localconverter
 from rpy2.rinterface_lib.embedded import RRuntimeError
-from .db_connector import disable_foreign_key_checks, enable_foreign_key_checks
-from tqdm import tqdm  # For displaying the progress bar
-
-
-
+from .db_connector import disable_foreign_key_checks, enable_foreign_key_checks, empty_table
 import logging
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 
-# Import R packages
-try:
-    db_connector = importr('DatabaseConnector')
-    readr = importr('readr')
-    base = importr('base')
-    lubridate = importr('lubridate')  # For date handling
-    ymd = lubridate.ymd
-    dplyr = importr('dplyr')
+# Declare global variables outside the function
+db_connector = None
+readr = None
+base = None
+lubridate = None
+ymd = None
+dplyr = None
 
-except RRuntimeError as e:
-    raise Exception(f"Failed to import R package 'DatabaseConnector': {e}")
-
-def get_table_schema(conn, schema, table_name):
+# Import relevant R packages with exception handling
+def load_packages() -> None:
     """
-    Retrieves the column names and data types from the target PostgreSQL table.
-    
+    Loads the required R packages using rpy2 and sets them as global variables.
+
+    Raises:
+        ImportError: If an error occurs while importing the R packages.
+    """
+    global db_connector, readr, base, lubridate, ymd, dplyr
+    try:
+        db_connector = importr('DatabaseConnector')
+        readr = importr('readr')
+        base = importr('base')
+        lubridate = importr('lubridate')
+        ymd = lubridate.ymd
+        dplyr = importr('dplyr')
+    except RRuntimeError as e:
+        raise ImportError(f"Failed to import R package: {e}")
+
+def get_table_schema(conn: object, schema: str, table_name: str) -> dict:
+    """
+    Retrieve column names and data types from the target PostgreSQL table.
+
     Args:
-        conn: Database connection object.
-        schema: Database schema name.
-        table_name: Name of the table to retrieve the schema from.
+        conn (object): Database connection object.
+        schema (str): Database schema name.
+        table_name (str): Name of the table.
 
     Returns:
-        dict: A dictionary of column names and their corresponding data types.
+        dict: A dictionary with column names as keys and data types as values.
     """
-
     query = f"""
         SELECT column_name, data_type
         FROM information_schema.columns
         WHERE table_schema = '{schema}'
           AND table_name = '{table_name}';
     """
-    # run the query.
+    # Execute the query
     result = db_connector.querySql(conn, query)
-    data = {}
-    # Loop through each column in the R DataFrame dynamically
+    
+    # Extract schema information into a dictionary
     colnames = robjs.r.colnames(result)
+    data = {col_name: list(result.rx2(col_name)) for col_name in colnames}
+    return dict(zip(data['column_name'], data['data_type']))
 
-    for col_name in colnames:
-        column_data = list(result.rx2(col_name))  # Extract the column data as a list
-        data[col_name] = column_data  # Add the column to the dictionary
-    
-    # zip this to contain both key and value, where key is the column name and value is the data_type returned.
-    schema_dict = dict(zip(data['COLUMN_NAME'], data['DATA_TYPE']))
-
-    return schema_dict
-
-def compare_and_convert_data_types(rdf, schema_dict):
+def compare_and_convert_data_types(rdf: object, schema_dict: dict) -> object:
     """
-    Compares the data frame columns with the PostgreSQL schema and converts columns as necessary.
-    
+    Compare the data frame columns with the database schema and convert columns as necessary.
+
     Args:
-        rdf: The loaded R data frame from the CSV.
-        schema_dict: Dictionary of column names and data types from PostgreSQL.
-    
-    Returns:
-        rdf: The modified R data frame with converted data types.
-    """
-    col_names = base.colnames(rdf)  # Get column names from the R data frame
-    col_names = list(col_names)
-    # define the index.
-    a = 1
-    for col_name in col_names:
-        col_name = str(col_name)
-        # Get the expected data type from the PostgreSQL table schema
-        expected_type = schema_dict.get(col_name, None)
-        
-        if expected_type is None:
-            logging.warning(f"Column '{col_name}' not found in the database schema. Skipping conversion.")
-            continue
-        
-        # Convert to the appropriate R type based on the expected PostgreSQL data type
-        if 'date' in expected_type:
-            # Convert to R's Date format
-            try:
-                # logging.info(f"converting {col_name} to R Date format {rdf.rx2[col_name]}")
-                new_date = ymd(rdf.rx2(col_name))
-                rdf = dplyr.mutate(rdf, **{col_name: new_date})
-                logging.info(f"Converted {col_name} to R Date format.")
-            except Exception as e:
-                logging.warning(f"Failed to convert {col_name} to Date: {e}")
-            
-        elif 'int' in expected_type:
-            # Convert to R integer
-            try:
-                new_int = base.as_integer(rdf.rx2[col_name])
-                rdf = dplyr.mutate(rdf, **{col_name: new_int})
-                logging.info(f"Converted {col_name} to R Integer.")
-            except Exception as e:
-                logging.warning(f"Failed to convert {col_name} to Integer: {e}")
+        rdf (object): R data frame to be compared and converted.
+        schema_dict (dict): Dictionary containing column names and expected data types.
 
-        elif 'char' in expected_type or 'text' in expected_type:
-            # Convert to R character (if needed, usually automatic)
-            logging.info(f"Column {col_name} is already a string type. No conversion needed.")
-        else:
-            logging.info(f"No conversion rule for {col_name} (PostgreSQL type: {expected_type}). Skipping conversion.")
-        a += 1
+    Returns:
+        object: The modified R data frame with converted data types.
+    """
+    for col_name in base.colnames(rdf):
+        col_name = str(col_name)
+        expected_type = schema_dict.get(col_name)
+
+        if not expected_type:
+            logging.warning(f"Column '{col_name}' not found in database schema. Skipping conversion.")
+            continue
+
+        try:
+            if 'date' in expected_type:
+                rdf = dplyr.mutate(rdf, **{col_name: ymd(rdf.rx2(col_name))})
+                logging.info(f"Converted '{col_name}' to R Date format.")
+            elif 'int' in expected_type:
+                rdf = dplyr.mutate(rdf, **{col_name: base.as_integer(rdf.rx2(col_name))})
+                logging.info(f"Converted '{col_name}' to R Integer.")
+            elif 'char' in expected_type or 'text' in expected_type:
+                logging.info(f"Column '{col_name}' is already a string type. No conversion needed.")
+            else:
+                logging.info(f"No conversion rule for '{col_name}' (type: {expected_type}). Skipping.")
+        except Exception as e:
+            logging.warning(f"Failed to convert '{col_name}': {e}")
 
     return rdf
 
-
-def load_csv_to_db(file_path, table_name, conn, schema, batch_size=10):
+def load_csv_to_db(file_path: str, table_name: str, conn: object, schema: str) -> None:
     """
-    Loads a CSV file into the specified database table in the given schema.
+    Load a CSV file into the specified database table.
 
     Args:
         file_path (str): Path to the CSV file.
         table_name (str): Name of the database table.
-        conn: Database connection object.
-        schema (str): Database schema where the table is located.
+        conn (object): Database connection object.
+        schema (str): Database schema name.
 
-    Raises:
-        Exception: If any error occurs during the process.
+    Returns:
+        None
     """
     try:
-        # Adjust the parameters of read_csv based on your CSV file's format
-        # Disable foreign key checks
         disable_foreign_key_checks(conn, db_connector)
-
-        rdf = readr.read_delim(
-            file=file_path,
-            delim='\t',  # Change to the correct delimiter, e.g., '\t' for tab-delimited
-            col_types=readr.cols(),  # Automatically detect column types,
-            na=robjs.r("character(0)"),
-            progress=False
-        )
-        # Retrieve the table schema from database
+        # empty the table.
+        empty_table(conn, db_connector, schema, table_name)
+        # Load CSV into R dataframe
+        rdf = readr.read_delim(file=file_path, delim='\t', col_types=readr.cols(), 
+        na=robjs.r("character(0)"), progress=False)
+        # Retrieve the schema from the database
         schema_dict = get_table_schema(conn, schema, table_name)
-
-        # Compare and convert the data types based on the database table schema
+        # Convert data types
         rdf = compare_and_convert_data_types(rdf, schema_dict)
-        # Construct the fully qualified table name with schema
-        fully_qualified_table_name = f'{schema}.{table_name}'
-        # Insert data into the database table using DatabaseConnector
+        # Insert data into database
         db_connector.insertTable(
             connection=conn,
-            tableName=fully_qualified_table_name,
+            tableName=f'{schema}.{table_name}',
             data=rdf,
             dropTableIfExists=False,
             createTable=False,
@@ -158,40 +132,30 @@ def load_csv_to_db(file_path, table_name, conn, schema, batch_size=10):
             progressBar=True,
             useMppBulkLoad=False
         )
-
-        # Re-enable foreign key checks after insertion
         enable_foreign_key_checks(conn, db_connector)
-        logging.info(f"Loaded data into table '{fully_qualified_table_name}'.")
+        logging.info(f"Loaded data into table '{schema}.{table_name}'.")
 
-    except pd.errors.ParserError as e:
-        raise Exception(f"ParserError while reading '{file_path}': {e}")
-    
     except Exception as e:
-        raise Exception(f"An error occurred while loading '{file_path}': {e}")
+        raise RuntimeError(f"Error loading '{file_path}' into '{table_name}': {e}")
 
-def load_all_csvs(folder_path, conn, schema):
+def load_all_csvs(folder_path: str, conn: object, schema: str) -> None:
     """
-    Loads all CSV files from the specified folder into the database schema.
+    Load all CSV files from the specified folder into the database schema.
 
     Args:
         folder_path (str): Path to the folder containing CSV files.
-        conn: Database connection object.
-        schema (str): Database schema where the tables are located.
+        conn (object): Database connection object.
+        schema (str): Database schema name.
 
-    Raises:
-        Exception: If any error occurs during the process.
+    Returns:
+        None
     """
-    # Define the order of tables to be loaded based on dependencies
     table_order = [
-        'vocabulary', 
-        'domain', 
-        'concept_class', 
-        'concept',
-        'relationship', 'concept_relationship', 'concept_ancestor', 'concept_synonym',
-        'drug_strength'
+        'vocabulary', 'domain', 'concept_class', 'concept',
+        'relationship', 'concept_relationship', 'concept_ancestor',
+        'concept_synonym', 'drug_strength'
     ]
 
-    # Map filenames to table names
     file_to_table_mapping = {
         'VOCABULARY.csv': 'vocabulary',
         'DOMAIN.csv': 'domain',
@@ -207,26 +171,21 @@ def load_all_csvs(folder_path, conn, schema):
     missing_files = []
 
     for table in table_order:
-        # Find the corresponding filename for the table
-        filename = next(
-            (fname for fname, tbl in file_to_table_mapping.items() if tbl == table),
-            None
-        )
+        filename = next((fname for fname, tbl in file_to_table_mapping.items() if tbl == table), None)
         if filename:
             file_path = os.path.join(folder_path, filename)
             if os.path.exists(file_path):
                 try:
                     load_csv_to_db(file_path, table, conn, schema)
                 except Exception as e:
-                    raise Exception(f"Failed to load data into table '{schema}.{table}': {e}")
-                    raise
+                    raise RuntimeError(f"Failed to load '{filename}' into '{table}': {e}")
             else:
-                logging.warning(f"File '{filename}' not found in folder '{folder_path}'. Skipping.")
+                logging.warning(f"File '{filename}' not found in folder '{folder_path}'.")
                 missing_files.append(filename)
         else:
-            logging.warning(f"No CSV file mapped for table '{table}'. Skipping.")
+            logging.warning(f"No CSV file mapped for table '{table}'.")
 
     if missing_files:
-        logging.warning(f"The following files were not found and were skipped: {missing_files}")
+        logging.warning(f"Missing files: {missing_files}")
 
-    logging.info("All available CSV files have been processed.")
+    logging.info("All CSV files have been processed.")
