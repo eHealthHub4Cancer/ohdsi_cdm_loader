@@ -2,6 +2,11 @@ from rpy2 import robjects as robs
 from rpy2.robjects.packages import importr
 from rpy2.rinterface_lib.embedded import RRuntimeError
 
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+
 # Import relevant R packages with exception handling
 def load_packages():
     try:
@@ -50,6 +55,34 @@ def connect_to_db(dbms: str, server: str, user: str, password: str, database: st
     except Exception as e:
         raise Exception(f"An unexpected error occurred while creating the database connection {e}")
 
+def disable_foreign_key_checks(conn, db_connector):
+    """
+    Disables foreign key checks in PostgreSQL for the current session.
+    
+    Args:
+        conn: Database connection object.
+    """
+    try:
+        query = "SET session_replication_role = 'replica';"
+        db_connector.executeSql(conn, query)
+        logging.info("Foreign key checks disabled.")
+    except Exception as e:
+        raise Exception(f"Failed to disable foreign key checks: {e}")
+        
+
+def enable_foreign_key_checks(conn, db_connector):
+    """
+    Enables foreign key checks in PostgreSQL for the current session.
+    
+    Args:
+        conn: Database connection object.
+    """
+    try:
+        query = "SET session_replication_role = 'origin';"
+        db_connector.executeSql(conn, query)
+        logging.info("Foreign key checks enabled.")
+    except Exception as e:
+        raise Exception(f"Failed to enable foreign key checks: {e}")
 
 # load the packages.
 db_conn = load_packages()

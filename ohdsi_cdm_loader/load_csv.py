@@ -5,6 +5,9 @@ from rpy2.robjects.packages import importr
 from rpy2.robjects import default_converter
 from rpy2.robjects.conversion import localconverter
 from rpy2.rinterface_lib.embedded import RRuntimeError
+from .db_connector import disable_foreign_key_checks, enable_foreign_key_checks
+from tqdm import tqdm  # For displaying the progress bar
+
 
 
 import logging
@@ -87,34 +90,32 @@ def compare_and_convert_data_types(rdf, schema_dict):
             # Convert to R's Date format
             try:
                 # logging.info(f"converting {col_name} to R Date format {rdf.rx2[col_name]}")
-
                 new_date = ymd(rdf.rx2(col_name))
-                # rdf.rx2[col_name] = new_date    
                 rdf = dplyr.mutate(rdf, **{col_name: new_date})
-                # print(rdf.rx2(a))
                 logging.info(f"Converted {col_name} to R Date format.")
             except Exception as e:
                 logging.warning(f"Failed to convert {col_name} to Date: {e}")
             
-        # elif 'int' in expected_type:
-        #     # Convert to R integer
-        #     try:
-        #         rdf.rx2[col_name] = base.as_integer(rdf.rx2[col_name])
-        #         logging.info(f"Converted {col_name} to R Integer.")
-        #     except Exception as e:
-        #         logging.warning(f"Failed to convert {col_name} to Integer: {e}")
+        elif 'int' in expected_type:
+            # Convert to R integer
+            try:
+                new_int = base.as_integer(rdf.rx2[col_name])
+                rdf = dplyr.mutate(rdf, **{col_name: new_int})
+                logging.info(f"Converted {col_name} to R Integer.")
+            except Exception as e:
+                logging.warning(f"Failed to convert {col_name} to Integer: {e}")
+
+        elif 'char' in expected_type or 'text' in expected_type:
+            # Convert to R character (if needed, usually automatic)
+            logging.info(f"Column {col_name} is already a string type. No conversion needed.")
+        else:
+            logging.info(f"No conversion rule for {col_name} (PostgreSQL type: {expected_type}). Skipping conversion.")
         a += 1
 
-    #     elif 'varchar' in expected_type or 'text' in expected_type:
-    #         # Convert to R character (if needed, usually automatic)
-    #         logging.info(f"Column {col_name} is already a string type. No conversion needed.")
-    #     else:
-    #         logging.info(f"No conversion rule for {col_name} (PostgreSQL type: {expected_type}). Skipping conversion.")
-          
     return rdf
 
 
-def load_csv_to_db(file_path, table_name, conn, schema):
+def load_csv_to_db(file_path, table_name, conn, schema, batch_size=10):
     """
     Loads a CSV file into the specified database table in the given schema.
 
@@ -129,47 +130,44 @@ def load_csv_to_db(file_path, table_name, conn, schema):
     """
     try:
         # Adjust the parameters of read_csv based on your CSV file's format
+        # Disable foreign key checks
+        disable_foreign_key_checks(conn, db_connector)
 
         rdf = readr.read_delim(
             file=file_path,
             delim='\t',  # Change to the correct delimiter, e.g., '\t' for tab-delimited
-            col_types=readr.cols(),  # Automatically detect column types
+            col_types=readr.cols(),  # Automatically detect column types,
+            na=robjs.r("character(0)"),
             progress=False
         )
-        # Retrieve the table schema from PostgreSQL
+        # Retrieve the table schema from database
         schema_dict = get_table_schema(conn, schema, table_name)
 
-        # Compare and convert the data types based on the PostgreSQL table schema
+        # Compare and convert the data types based on the database table schema
         rdf = compare_and_convert_data_types(rdf, schema_dict)
-        # rdf = readr.read_csv(
-        #     file=file_path,
-        #     col_types=readr.cols(),  # Automatically detect column types
-        #     progress=False
-        # )
-
         # Construct the fully qualified table name with schema
         fully_qualified_table_name = f'{schema}.{table_name}'
-
         # Insert data into the database table using DatabaseConnector
-        # db_connector.insertTable(
-        #     connection=conn,
-        #     tableName=fully_qualified_table_name,
-        #     data=rdf,
-        #     dropTableIfExists=False,
-        #     createTable=False,
-        #     tempTable=False,
-        #     progressBar=False,
-        #     useMppBulkLoad=False
-        # )
+        db_connector.insertTable(
+            connection=conn,
+            tableName=fully_qualified_table_name,
+            data=rdf,
+            dropTableIfExists=False,
+            createTable=False,
+            tempTable=False,
+            progressBar=True,
+            useMppBulkLoad=False
+        )
 
+        # Re-enable foreign key checks after insertion
+        enable_foreign_key_checks(conn, db_connector)
         logging.info(f"Loaded data into table '{fully_qualified_table_name}'.")
 
     except pd.errors.ParserError as e:
-        logging.error(f"ParserError while reading '{file_path}': {e}")
-        raise
+        raise Exception(f"ParserError while reading '{file_path}': {e}")
+    
     except Exception as e:
-        logging.error(f"An error occurred while loading '{file_path}': {e}")
-        raise
+        raise Exception(f"An error occurred while loading '{file_path}': {e}")
 
 def load_all_csvs(folder_path, conn, schema):
     """
@@ -185,21 +183,25 @@ def load_all_csvs(folder_path, conn, schema):
     """
     # Define the order of tables to be loaded based on dependencies
     table_order = [
-        # 'vocabulary', 'domain', 'concept_class', 
+        'vocabulary', 
+        'domain', 
+        'concept_class', 
         'concept',
-        # 'relationship', 'concept_relationship', 'concept_ancestor', 'concept_synonym'
+        'relationship', 'concept_relationship', 'concept_ancestor', 'concept_synonym',
+        'drug_strength'
     ]
 
     # Map filenames to table names
     file_to_table_mapping = {
-        # 'VOCABULARY.csv': 'vocabulary',
-        # 'DOMAIN.csv': 'domain',
-        # 'CONCEPT_CLASS.csv': 'concept_class',
+        'VOCABULARY.csv': 'vocabulary',
+        'DOMAIN.csv': 'domain',
+        'CONCEPT_CLASS.csv': 'concept_class',
         'CONCEPT.csv': 'concept',
-        # 'RELATIONSHIP.csv': 'relationship',
-        # 'CONCEPT_RELATIONSHIP.csv': 'concept_relationship',
-        # 'CONCEPT_ANCESTOR.csv': 'concept_ancestor',
-        # 'CONCEPT_SYNONYM.csv': 'concept_synonym'
+        'RELATIONSHIP.csv': 'relationship',
+        'CONCEPT_RELATIONSHIP.csv': 'concept_relationship',
+        'CONCEPT_ANCESTOR.csv': 'concept_ancestor',
+        'CONCEPT_SYNONYM.csv': 'concept_synonym',
+        'DRUG_STRENGTH.csv': 'drug_strength'
     }
 
     missing_files = []
@@ -216,7 +218,7 @@ def load_all_csvs(folder_path, conn, schema):
                 try:
                     load_csv_to_db(file_path, table, conn, schema)
                 except Exception as e:
-                    logging.error(f"Failed to load data into table '{schema}.{table}': {e}")
+                    raise Exception(f"Failed to load data into table '{schema}.{table}': {e}")
                     raise
             else:
                 logging.warning(f"File '{filename}' not found in folder '{folder_path}'. Skipping.")
