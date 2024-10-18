@@ -23,6 +23,8 @@ setup(
         'rpy2==3.5.12'
     ],
     description='A package for loading OHDSI CDM CSV files into a relational database.',
+    long_description=open('README.md').read(),  # Detailed description from your README
+    long_description_content_type="text/markdown",
     author='David Chibuike Ikechi Akwuru',
     author_email='akwuru.david@ul.ie',
     url='https://github.com/DavidIkechi/ohdsi_cdm_loader.git',
@@ -31,4 +33,6 @@ setup(
         'License :: OSI Approved :: MIT License',
         'Operating System :: OS Independent',
     ],
+    license="MIT",  # <-- Include license type here
+    python_requires='>=3.6',
 )

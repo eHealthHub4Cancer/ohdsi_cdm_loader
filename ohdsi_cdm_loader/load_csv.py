@@ -170,7 +170,6 @@ class CSVLoader:
                 file_path = os.path.join(folder_path, f'{table.upper()}.csv')
                 if os.path.exists(file_path):
                     try:
-                        print("yes")
                         self.load_csv_to_db(file_path, table)
                     except Exception as e:
                         raise RuntimeError(f"Failed to load '{filename}' into '{table}': {e}")
