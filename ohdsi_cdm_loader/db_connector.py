@@ -7,7 +7,7 @@ from typing import Optional
 logging.basicConfig(level=logging.INFO)
 
 class DatabaseHandler:
-    def __init__(self, dbms: str, server: str, user: str, password: str, database: str, driver_path: str, db_connector: object):
+    def __init__(self, dbms: str, server: str, user: str, password: str, database: str, driver_path: str):
         """
         Initialize the DatabaseHandler with the given parameters.
 
@@ -25,7 +25,7 @@ class DatabaseHandler:
         self._password = password
         self._database = database
         self._driver_path = driver_path
-        self._db_connector = db_connector
+        self._db_connector = importr('DatabaseConnector')
         self._conn: Optional[object] = None
         self._common_data_model = importr('CommonDataModel')
 
@@ -73,6 +73,14 @@ class DatabaseHandler:
     def get_driver_path(self) -> str:
         """Get the path to the database driver."""
         return self._driver_path
+    
+    def set_connection(self, conn) -> None:
+        """set the connection"""
+        self._conn = conn
+
+    def get_connection(self) -> object:
+        """Return the connection which has been set"""
+        return self._conn
 
     def set_driver_path(self, driver_path: str) -> None:
         """Set the path to the database driver."""
@@ -94,6 +102,8 @@ class DatabaseHandler:
             )
             self._conn = self._db_connector.connect(connection_details)
             logging.info("Database connection established successfully.")
+            self.set_connection(self._conn)
+            
         except RRuntimeError as e:
             raise Exception(f"Error creating database connection: {e}")
         except Exception as e:

@@ -3,7 +3,7 @@ import pandas as pd
 import rpy2.robjects as robjs
 from rpy2.robjects.packages import importr
 from rpy2.rinterface_lib.embedded import RRuntimeError
-from .db_connector import DBConnector
+from .db_connector import DatabaseHandler
 import logging
 
 # Configure logging
@@ -20,7 +20,7 @@ class CSVLoader:
         """
         self.conn = conn
         self.schema = schema
-        self.db_connector = DBConnector()
+        self.db_connector = DatabaseHandler()
         self._load_packages()
 
     def _load_packages(self) -> None:
