@@ -4,6 +4,8 @@ This repository provides scripts to load Common Data Model (CDM) data from OHDSI
 
 Although this project has been primarily tested with PostgreSQL, it may also work with other supported databases by OHDSI (still testing).
 
+Please make sure the default database port is used.
+
 ## Requirements
 
 ### Python Requirements
@@ -98,17 +100,17 @@ database_connector.execute_ddl(cdm_version = "value", cdm_database_schema = "sch
 - Uses the active database connection and CDM-compliant table structure.
 
 #### Example (Python):
-
+#### Note: please download the latest vocabulary from [OHDSI vocabulary list](https://athena.ohdsi.org/vocabulary/list)
 ```python
 from load_csv import CSVLoader
 
 csv_loader = CSVLoader(
     db_connection=db_conn,  # Active database connection
     database_handler=database_connector,  # DatabaseHandler instance
-    table_name="your_cdm_table_name"  # CDM table name
+    schema="schema"  # CDM schema
 )
 
-csv_loader.load_all_csvs("path_to_your_csv_directory")
+csv_loader.load_all_csvs("path_to_downloaded_csv_directory")
 ```
 
 ### 3. `main.py`
@@ -181,13 +183,20 @@ database_connector = DatabaseHandler(
 
 ## Credits
 
-This project is designed to work with OHDSI's Common Data Model (CDM) and standardized vocabularies. The tools and processes used here are compatible with OHDSI standards, and the database loader has been tested specifically for PostgreSQL, though it should work with other databases supported by OHDSI.
+This project is designed to work with OHDSI's Common Data Model (CDM) and standardized vocabularies. The tools and processes used here are compatible with OHDSI standards, and the database loader has been tested specifically for PostgreSQL, though it should work with other databases supported by OHDSI. 
 
-[![OHDSI](https://res.cloudinary.com/dc29czhf9/image/upload/v1729287157/h243-ohdsi-logo-with-text_hhymri.png)](https://ohdsi.org)  
+<a href="https://ohdsi.org">
+  <img src="https://res.cloudinary.com/dc29czhf9/image/upload/v1729287157/h243-ohdsi-logo-with-text_hhymri.png" alt="OHDSI" width="100"/>
+</a>
+
 **OHDSI** (Observational Health Data Sciences and Informatics) is a multi-stakeholder, interdisciplinary collaborative that aims to bring out the value of observational health data through large-scale analytics. Learn more about OHDSI and the CDM on the [official OHDSI website](https://ohdsi.org).
 
-[![eHealth Hub Limerick](https://res.cloudinary.com/dc29czhf9/image/upload/v1729287084/download_umxgmo.jpg)](https://ehealth4cancer.org)  
+<a href="https://ehealth4cancer.org">
+  <img src="https://res.cloudinary.com/dc29czhf9/image/upload/v1729287084/download_umxgmo.jpg" alt="eHealth Hub Limerick" width="100"/>
+</a>
+
 This project was also supported by **eHealth Hub Limerick**, contributing to the development and deployment of health data tools for innovative healthcare solutions. Learn more about eHealth Hub Limerick at [eHealth Hub Limerick's official website](https://ehealth4cancer.org).
+
 
 ## License
 
