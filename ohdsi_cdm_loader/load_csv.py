@@ -5,6 +5,8 @@ from rpy2.robjects.packages import importr
 from rpy2.rinterface_lib.embedded import RRuntimeError
 from .db_connector import DatabaseHandler
 import logging
+import time
+
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -106,9 +108,7 @@ class CSVLoader:
             None
         """
         try:
-            self.db_connect.disable_foreign_key_checks()
             # Empty the table.
-            self.db_connect.empty_table(self.schema, table_name)
             # Load CSV into R dataframe
             rdf = self.readr.read_delim(file=file_path, delim='\t', col_types=self.readr.cols(), 
             na=robjs.r("character(0)"), progress=False)
@@ -127,7 +127,6 @@ class CSVLoader:
                 progressBar=True,
                 useMppBulkLoad=False
             )
-            self.db_connect.enable_foreign_key_checks()
             logging.info(f"Loaded data into table '{self.schema}.{table_name}'.")
 
         except Exception as e:
@@ -145,11 +144,12 @@ class CSVLoader:
         """
         table_order = [
             'vocabulary', 
-            'domain', 'concept_class', 'concept',
+            'domain',
+            'concept_class', 'concept',
             'relationship', 'concept_relationship', 'concept_ancestor',
             'concept_synonym', 'drug_strength'
         ]
-        print("ooo")
+
         file_to_table_mapping = {
             'vocabulary.csv': 'vocabulary',
             'domain.csv': 'domain',
@@ -164,6 +164,18 @@ class CSVLoader:
 
         missing_files = []
 
+        try:
+            print("\n\nDeleting data from table before loading...\n\n")
+            time.sleep(10)
+            a = [self.db_connect.empty_table(self.schema, table_name) for table_name in table_order]
+            time.sleep(10)
+            print("\n\n Next - Inserting data...\n\n")
+            time.sleep(10)
+        except Exception as e:
+            logging.error(f"Failed to empty table': {e}")
+
+
+        self.db_connect.disable_foreign_key_checks()
         for table in table_order:
             filename = file_to_table_mapping.get(f'{table}.csv')
             if filename:
@@ -176,6 +188,9 @@ class CSVLoader:
                 else:
                     logging.warning(f"File '{filename}' not found in folder '{folder_path}'.")
                     missing_files.append(filename)
+        
+        self.db_connect.enable_foreign_key_checks()
+
 
         if missing_files:
             logging.warning(f"Missing files: {missing_files}")

@@ -4,8 +4,6 @@ This repository provides scripts to load Common Data Model (CDM) data from OHDSI
 
 Although this project has been primarily tested with PostgreSQL, it may also work with other supported databases by OHDSI (still testing).
 
-Please make sure the default database port is used.
-
 ## Requirements
 
 ### Python Requirements
@@ -62,6 +60,7 @@ database_connector = DatabaseHandler(
     password="your_password",  # Database password
     database="ohdsi_cdm",  # OHDSI CDM database
     driver_path="path_to_driver"  # path to driver for selected database
+    port=port # integer that defines the port, 5432 is used if not specified.
 )
 
 db_conn = database_connector.connect_to_db()

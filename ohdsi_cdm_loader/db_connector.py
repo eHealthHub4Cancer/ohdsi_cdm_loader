@@ -7,7 +7,7 @@ from typing import Optional
 logging.basicConfig(level=logging.INFO)
 
 class DatabaseHandler:
-    def __init__(self, dbms: str, server: str, user: str, password: str, database: str, driver_path: str):
+    def __init__(self, dbms: str, server: str, user: str, password: str, database: str, driver_path: str, port: int=5432):
         """
         Initialize the DatabaseHandler with the given parameters.
 
@@ -17,6 +17,7 @@ class DatabaseHandler:
         :param password: The password for database authentication.
         :param database: The name of the database.
         :param driver_path: Path to the database driver.
+        :param port: This defines the port of the database.
         :param db_connector: Database connector object.
         """
         self._dbms = dbms
@@ -29,6 +30,7 @@ class DatabaseHandler:
         self._conn: Optional[object] = None
         self._conn_details: Optional[object] = None
         self._common_data_model = importr('CommonDataModel')
+        self._port = port
 
     # Getters and Setters
     def get_dbms(self) -> str:
@@ -39,6 +41,14 @@ class DatabaseHandler:
         """Set the database management system type."""
         self._dbms = dbms
 
+    def set_port(self, port: int) -> None:
+        """set the database port"""
+        self._port = port
+
+    def get_port(self) -> int:
+        """get the database port"""
+        return self._port
+    
     def get_server(self) -> str:
         """Get the server address."""
         return self._server
@@ -107,7 +117,8 @@ class DatabaseHandler:
                 server=f"{self._server}/{self._database}",
                 user=self._user,
                 password=self._password,
-                pathToDriver=self._driver_path
+                pathToDriver=self._driver_path,
+                port=self._port
             )
             self._conn = self._db_connector.connect(connection_details)
             logging.info("Database connection established successfully.")
