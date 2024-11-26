@@ -180,12 +180,15 @@ class DatabaseHandler:
         :param cdm_database_schema: The database schema for the CDM.
         :raises Exception: If there is an error executing the CDM DDL.
         """
+        if not self._conn_details:
+            raise Exception("Connection details are not set. Connect to the database first.")
+
         try:
             self._common_data_model.executeDdl(
                 connectionDetails=self._conn_details,
                 cdmVersion=cdm_version,
                 cdmDatabaseSchema=cdm_database_schema
             )
-            logging.info("CDM DDL execution completed.")
+            logging.info("CDM DDL execution completed successfully.")
         except RRuntimeError as e:
             raise Exception(f"Error executing CDM DDL: {e}")
