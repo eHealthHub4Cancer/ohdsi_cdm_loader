@@ -5,12 +5,21 @@ from rpy2.robjects.packages import importr
 from rpy2.rinterface_lib.embedded import RRuntimeError
 from .db_connector import DatabaseHandler
 import logging
+import time
+import asyncio
+import pyarrow.feather as feather
+from pg_bulk_loader import PgConnectionDetail, batch_insert_to_postgres
+from tqdm import tqdm
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 
+# Set the event loop policy to WindowsSelectorEventLoopPolicy if using Windows
+if hasattr(asyncio, 'WindowsSelectorEventLoopPolicy'):
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
 class CSVLoader:
-    def __init__(self, conn: object, db_handler: object, schema: str):
+    def __init__(self, conn: object, db_handler: object):
         """
         Initialize the CSVLoader class.
 
@@ -19,52 +28,15 @@ class CSVLoader:
             schema (str): Database schema name.
         """
         self.conn = conn
-        self.schema = schema
+        self.schema = db_handler._schema
         self.db_connect = db_handler
+        self.db_con = importr('DatabaseConnector')
         self.db_connector = self.db_connect.get_db_connector()
-        self._load_packages()
-
-    def _load_packages(self) -> None:
-        """
-        Loads the required R packages using rpy2 and sets them as instance variables.
-
-        Raises:
-            ImportError: If an error occurs while importing the R packages.
-        """
-        try:
-            self.readr = importr('readr')
-            self.base = importr('base')
-            self.lubridate = importr('lubridate')
-            self.ymd = self.lubridate.ymd
-            self.dplyr = importr('dplyr')
-        except RRuntimeError as e:
-            raise ImportError(f"Failed to import R package: {e}")
-
-    def get_table_schema(self, table_name: str) -> dict:
-        """
-        Retrieve column names and data types from the target database table.
-
-        Args:
-            table_name (str): Name of the table.
-
-        Returns:
-            dict: A dictionary with column names as keys and data types as values.
-        """
-        query = f"""
-            SELECT column_name, data_type
-            FROM information_schema.columns
-            WHERE table_schema = '{self.schema}'
-              AND table_name = '{table_name}';
-        """
-        # Execute the query
-        result = self.db_connector.querySql(self.conn, query)
+        self._arrow = importr('arrow')
+        self._bulk_conn = db_handler.get_bulk_connection()
+        self._character = {}
         
-        # Extract schema information into a dictionary
-        colnames = robjs.r.colnames(result)
-        data = {col_name: list(result.rx2(col_name)) for col_name in colnames}
-        return dict(zip(data['COLUMN_NAME'], data['DATA_TYPE']))
-
-    def compare_and_convert_data_types(self, rdf: object, schema_dict: dict) -> object:
+    def r2p_convert(self, rdf: object, direction: str) -> object:
         """
         Compare the data frame columns with the database schema and convert columns as necessary.
 
@@ -75,26 +47,95 @@ class CSVLoader:
         Returns:
             object: The modified R data frame with converted data types.
         """
-        for col_name in self.base.colnames(rdf):
-            col_name = str(col_name)
-            expected_type = schema_dict.get(col_name)
-
-            if not expected_type:
-                logging.warning(f"Column '{col_name}' not found in database schema. Skipping conversion.")
-                continue
-
-            try:
-                if 'date' in expected_type:
-                    rdf = self.dplyr.mutate(rdf, **{col_name: self.ymd(rdf.rx2(col_name))})
-                elif 'int' in expected_type:
-                    rdf = self.dplyr.mutate(rdf, **{col_name: self.base.as_integer(rdf.rx2(col_name))})
-                logging.info(f"Converted '{col_name}' to {expected_type} format.")
-            except Exception as e:
-                logging.warning(f"Failed to convert '{col_name}': {e}")
-
+        if direction == 'to_python':
+             self._arrow.write_feather(rdf, 'temp.feather')
+             rdf = feather.read_feather('temp.feather')
+        elif direction == 'to_r':
+            feather.write_feather(rdf, 'temp.feather')
+            rdf = self._arrow.read_feather('temp.feather')
         return rdf
 
-    def load_csv_to_db(self, file_path: str, table_name: str) -> None:
+    def check_data_types(self, rdf: object, result_schema, similar_columns) -> None:
+        """
+        Check the data types of the columns in the data frame and convert them as necessary.
+        """
+        similar_columns = list(similar_columns)
+        # Select only the similar columns from the R data frame
+        new_rdf = rdf[similar_columns].copy()
+
+        # Iterate through each column to convert based on the database schema
+        for column in similar_columns:
+            if result_schema[column] in ['integer', 'bigint', 'smallint']:
+                new_rdf[column] = pd.to_numeric(new_rdf[column], errors='coerce').astype('Int64')
+            if result_schema[column] in ['numeric']:
+                new_rdf[column] = pd.to_numeric(new_rdf[column], errors='coerce')
+            if result_schema[column] in ['character','character varying']:
+                new_rdf[column] = new_rdf[column].fillna('').astype(str)
+                new_rdf[column] = new_rdf[column].str[:int(self._character[column])]
+            elif result_schema[column] in ['date', 'Date']:
+                new_rdf[column] = pd.to_datetime(new_rdf[column], format='%Y%m%d', errors='coerce')
+            elif result_schema[column] == 'logical':
+                new_rdf[column] = new_rdf[column].astype(bool)
+            elif result_schema[column] == 'complex':
+                new_rdf[column] = new_rdf[column].astype(complex)
+        return new_rdf
+    
+    def compare_and_convert(self, rdf: object, table: str):
+        """
+        Compare the data frame columns with the database schema and convert columns as necessary
+        rdf: R data frame to be compared and converted.
+        table: table name to compare the schema with
+        """
+        # get the data type for the table, including the columns
+        query = f"SELECT column_name, data_type, character_maximum_length FROM information_schema.columns WHERE table_name = '{table}' and table_schema = '{self.schema}'"
+        result = self.db_con.querySql(
+            connection=self.conn,
+            sql=query)
+        
+        result = self.r2p_convert(result, 'to_python')
+        # create a dictionary of the columns and their data types
+        result_schema = dict(zip(result['COLUMN_NAME'], result['DATA_TYPE']))
+        self._character = dict(zip(result['COLUMN_NAME'], result['CHARACTER_MAXIMUM_LENGTH']))
+        # drop all rows without value.
+        rdf = rdf.dropna(axis=1, how='all')
+        required_columns = set(result_schema.keys())
+        dataframe_columns = set(rdf.columns)
+        # similar_columns 
+        similar_columns = required_columns.intersection(dataframe_columns)
+
+        return self.check_data_types(rdf, result_schema, similar_columns)
+    
+    async def bulk_load_data(self, batch_size, data, table_name, max_pool_size: int=20, min_pool_size:int=20):
+        """ bulk load data into database
+        Args:
+            batch_size: int representing batches
+            data: pandas dataframe represent the dataframe data to be loaded.
+            table_name: string representing the table name.
+            max_pool_size: int
+            min_pool_size: int
+        """    
+        batch_size = 250000
+        num_batches = (len(data) + batch_size - 1) // batch_size  # Calculate total number of batches
+
+        # Insert data into the database in batches with progress tracking
+        for i in tqdm(range(num_batches), desc="Inserting batches into database"):
+            start_idx = i * batch_size
+            end_idx = min(start_idx + batch_size, len(data))
+            batch_data = data.iloc[start_idx:end_idx]
+
+            # Insert each batch into the database
+            await batch_insert_to_postgres(
+                pg_conn_details=self._bulk_conn,
+                table_name=table_name,
+                input_data=batch_data,
+                batch_size=batch_size,
+                min_conn_pool_size=min_pool_size,
+                max_conn_pool_size=max_pool_size,
+                use_multi_process_for_create_index=False,
+                drop_and_create_index=False
+            )
+
+    async def load_csv_to_db(self, file_path: str, table_name: str, chunk_size:int=100000, batch_size: int= 500000) -> None:
         """
         Load a CSV file into the specified database table.
 
@@ -106,28 +147,24 @@ class CSVLoader:
             None
         """
         try:
-            self.db_connect.disable_foreign_key_checks()
-            # Empty the table.
-            self.db_connect.empty_table(self.schema, table_name)
-            # Load CSV into R dataframe
-            rdf = self.readr.read_delim(file=file_path, delim='\t', col_types=self.readr.cols(), 
-            na=robjs.r("character(0)"), progress=False)
-            # Retrieve the schema from the database
-            schema_dict = self.get_table_schema(table_name)
-            # Convert data types
-            rdf = self.compare_and_convert_data_types(rdf, schema_dict)
-            # Insert data into database
-            self.db_connector.insertTable(
-                connection=self.conn,
-                tableName=f'{self.schema}.{table_name}',
-                data=rdf,
-                dropTableIfExists=False,
-                createTable=False,
-                tempTable=False,
-                progressBar=True,
-                useMppBulkLoad=False
-            )
-            self.db_connect.enable_foreign_key_checks()
+            chunks = pd.read_csv(file_path, sep='\t', na_values=[], keep_default_na=False, chunksize=chunk_size, low_memory=False)
+            # list to hold chunk while loading.
+            df_list = []
+            for chunk in tqdm(chunks, desc="Reading CSV in chunks"):
+                df_list.append(chunk)
+
+            # concatenate chunks.    
+            df = pd.concat(df_list, ignore_index=True)
+            rdf_2 = df.copy(deep=True)
+            rdf_2.columns = rdf_2.columns.str.lower()
+            # # Convert data types
+            cleaned_rdf = self.compare_and_convert(rdf_2, table_name)
+            await self.bulk_load_data(batch_size=batch_size,
+                                data=cleaned_rdf,
+                                table_name=table_name,
+                                max_pool_size=20,
+                                min_pool_size=20)
+      
             logging.info(f"Loaded data into table '{self.schema}.{table_name}'.")
 
         except Exception as e:
@@ -145,15 +182,20 @@ class CSVLoader:
         """
         table_order = [
             'vocabulary', 
-            'domain', 'concept_class', 'concept',
-            'relationship', 'concept_relationship', 'concept_ancestor',
-            'concept_synonym', 'drug_strength'
+            'domain',
+            'concept_class', 
+            'concept',
+            'relationship', 
+            'concept_relationship', 
+            'concept_ancestor',
+            'concept_synonym', 
+            'drug_strength'
         ]
-        print("ooo")
+
         file_to_table_mapping = {
             'vocabulary.csv': 'vocabulary',
             'domain.csv': 'domain',
-            'concep_class.csv': 'concept_class',
+            'concept_class.csv': 'concept_class',
             'concept.csv': 'concept',
             'relationship.csv': 'relationship',
             'concept_relationship.csv': 'concept_relationship',
@@ -164,18 +206,33 @@ class CSVLoader:
 
         missing_files = []
 
+        try:
+            print("\n\nDeleting data from table before loading...\n\n")
+            time.sleep(1)
+            a = [self.db_connect.empty_table(self.schema, table_name) for table_name in table_order]
+            time.sleep(1)
+            print("\n\n Next - Inserting data...\n\n")
+            time.sleep(1)
+        except Exception as e:
+            logging.error(f"Failed to empty table': {e}")
+
+
         for table in table_order:
             filename = file_to_table_mapping.get(f'{table}.csv')
             if filename:
+                self.db_connect.disable_foreign_key_checks(table)
+
                 file_path = os.path.join(folder_path, f'{table.upper()}.csv')
                 if os.path.exists(file_path):
                     try:
-                        self.load_csv_to_db(file_path, table)
+                        asyncio.run(self.load_csv_to_db(file_path, table))
                     except Exception as e:
                         raise RuntimeError(f"Failed to load '{filename}' into '{table}': {e}")
                 else:
                     logging.warning(f"File '{filename}' not found in folder '{folder_path}'.")
                     missing_files.append(filename)
+        
+        self.db_connect.enable_foreign_key_checks()
 
         if missing_files:
             logging.warning(f"Missing files: {missing_files}")

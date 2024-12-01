@@ -2,12 +2,13 @@ from rpy2.robjects.packages import importr
 from rpy2.rinterface_lib.embedded import RRuntimeError
 import logging
 from typing import Optional
-
+import asyncio
+from pg_bulk_loader import PgConnectionDetail, batch_insert_to_postgres
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 
 class DatabaseHandler:
-    def __init__(self, dbms: str, server: str, user: str, password: str, database: str, driver_path: str):
+    def __init__(self, dbms: str, server: str, user: str, password: str, database: str, driver_path: str, schema: str, port: int=5432):
         """
         Initialize the DatabaseHandler with the given parameters.
 
@@ -17,6 +18,7 @@ class DatabaseHandler:
         :param password: The password for database authentication.
         :param database: The name of the database.
         :param driver_path: Path to the database driver.
+        :param port: This defines the port of the database.
         :param db_connector: Database connector object.
         """
         self._dbms = dbms
@@ -29,6 +31,23 @@ class DatabaseHandler:
         self._conn: Optional[object] = None
         self._conn_details: Optional[object] = None
         self._common_data_model = importr('CommonDataModel')
+        self._port = port
+        self._schema = schema
+        self.create_bulk_connection()
+
+    def create_bulk_connection(self):
+        # Create Postgres Connection Details object. This will help in creating and managing the database connections 
+        self.pg_conn_details = PgConnectionDetail(
+            user=self._user,
+            password=self._password,
+            database=self._database,
+            host=self._server,
+            port=self._port,
+            schema=self._schema
+        )
+    
+    def get_bulk_connection(self):
+        return self.pg_conn_details
 
     # Getters and Setters
     def get_dbms(self) -> str:
@@ -39,6 +58,14 @@ class DatabaseHandler:
         """Set the database management system type."""
         self._dbms = dbms
 
+    def set_port(self, port: int) -> None:
+        """set the database port"""
+        self._port = port
+
+    def get_port(self) -> int:
+        """get the database port"""
+        return self._port
+    
     def get_server(self) -> str:
         """Get the server address."""
         return self._server
@@ -107,7 +134,8 @@ class DatabaseHandler:
                 server=f"{self._server}/{self._database}",
                 user=self._user,
                 password=self._password,
-                pathToDriver=self._driver_path
+                pathToDriver=self._driver_path,
+                port=self._port
             )
             self._conn = self._db_connector.connect(connection_details)
             logging.info("Database connection established successfully.")
@@ -120,14 +148,15 @@ class DatabaseHandler:
         except Exception as e:
             raise Exception(f"An unexpected error occurred while creating the database connection: {e}")
 
-    def disable_foreign_key_checks(self) -> None:
+    def disable_foreign_key_checks(self, table) -> None:
         """
         Disable foreign key checks in the database.
 
         :raises Exception: If there is an error disabling foreign key checks.
         """
         try:
-            query = "SET session_replication_role = 'replica';"
+            # query = "SET session_replication_role = 'replica';"
+            query = f"ALTER TABLE {self._schema}.{table} DISABLE TRIGGER ALL;"
             self._db_connector.executeSql(self._conn, query)
             logging.info("Foreign key checks disabled.")
         except Exception as e:
@@ -161,20 +190,22 @@ class DatabaseHandler:
         except Exception as e:
             raise Exception(f"Failed to truncate table '{schema}.{table_name}': {e}")
 
-    def execute_ddl(self, cdm_version: str, cdm_database_schema: str) -> None:
+    def execute_ddl(self, cdm_version: str) -> None:
         """
         Execute the Common Data Model (CDM) DDL script.
-
         :param cdm_version: The version of the CDM to execute.
         :param cdm_database_schema: The database schema for the CDM.
         :raises Exception: If there is an error executing the CDM DDL.
         """
+        if not self._conn_details:
+            raise Exception("Connection details are not set. Connect to the database first.")
+
         try:
             self._common_data_model.executeDdl(
                 connectionDetails=self._conn_details,
                 cdmVersion=cdm_version,
-                cdmDatabaseSchema=cdm_database_schema
+                cdmDatabaseSchema=self._schema
             )
-            logging.info("CDM DDL execution completed.")
+            logging.info("CDM DDL execution completed successfully.")
         except RRuntimeError as e:
             raise Exception(f"Error executing CDM DDL: {e}")
