@@ -2,12 +2,13 @@ from rpy2.robjects.packages import importr
 from rpy2.rinterface_lib.embedded import RRuntimeError
 import logging
 from typing import Optional
-
+import asyncio
+from pg_bulk_loader import PgConnectionDetail, batch_insert_to_postgres
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 
 class DatabaseHandler:
-    def __init__(self, dbms: str, server: str, user: str, password: str, database: str, driver_path: str, port: int=5432):
+    def __init__(self, dbms: str, server: str, user: str, password: str, database: str, driver_path: str, schema: str, port: int=5432):
         """
         Initialize the DatabaseHandler with the given parameters.
 
@@ -31,6 +32,22 @@ class DatabaseHandler:
         self._conn_details: Optional[object] = None
         self._common_data_model = importr('CommonDataModel')
         self._port = port
+        self._schema = schema
+        self.create_bulk_connection()
+
+    def create_bulk_connection(self):
+        # Create Postgres Connection Details object. This will help in creating and managing the database connections 
+        self.pg_conn_details = PgConnectionDetail(
+            user=self._user,
+            password=self._password,
+            database=self._database,
+            host=self._server,
+            port=self._port,
+            schema=self._schema
+        )
+    
+    def get_bulk_connection(self):
+        return self.pg_conn_details
 
     # Getters and Setters
     def get_dbms(self) -> str:
@@ -131,14 +148,15 @@ class DatabaseHandler:
         except Exception as e:
             raise Exception(f"An unexpected error occurred while creating the database connection: {e}")
 
-    def disable_foreign_key_checks(self) -> None:
+    def disable_foreign_key_checks(self, table) -> None:
         """
         Disable foreign key checks in the database.
 
         :raises Exception: If there is an error disabling foreign key checks.
         """
         try:
-            query = "SET session_replication_role = 'replica';"
+            # query = "SET session_replication_role = 'replica';"
+            query = f"ALTER TABLE {self._schema}.{table} DISABLE TRIGGER ALL;"
             self._db_connector.executeSql(self._conn, query)
             logging.info("Foreign key checks disabled.")
         except Exception as e:
@@ -172,10 +190,9 @@ class DatabaseHandler:
         except Exception as e:
             raise Exception(f"Failed to truncate table '{schema}.{table_name}': {e}")
 
-    def execute_ddl(self, cdm_version: str, cdm_database_schema: str) -> None:
+    def execute_ddl(self, cdm_version: str) -> None:
         """
         Execute the Common Data Model (CDM) DDL script.
-
         :param cdm_version: The version of the CDM to execute.
         :param cdm_database_schema: The database schema for the CDM.
         :raises Exception: If there is an error executing the CDM DDL.
@@ -187,7 +204,7 @@ class DatabaseHandler:
             self._common_data_model.executeDdl(
                 connectionDetails=self._conn_details,
                 cdmVersion=cdm_version,
-                cdmDatabaseSchema=cdm_database_schema
+                cdmDatabaseSchema=self._schema
             )
             logging.info("CDM DDL execution completed successfully.")
         except RRuntimeError as e:

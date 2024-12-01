@@ -2,15 +2,14 @@
 
 This repository provides scripts to load Common Data Model (CDM) data from OHDSI's standardized vocabularies (version 5.4 or 5.3) into CDM tables in a relational database. It is designed for the OHDSI community and those working with OHDSI's Common Data Model for large-scale observational research.
 
-Although this project has been primarily tested with PostgreSQL, it may also work with other supported databases by OHDSI (still testing).
+This project has been primarily tested with PostgreSQL. We hope to expand across other databases supported within the OHDSI community in upcoming versions.
 
 ## Requirements
 
-### Python Requirements
+### Python and Database Requirements
 
-- Python 3.x
-- PostgreSQL database (for testing, but adaptable for other OHDSI-supported databases)
-- still checking for others.
+- Python 3.9
+- PostgreSQL database, still checking for others.
 - Required Python libraries (listed in `requirements.txt`)
 
 ### R Requirements
@@ -23,11 +22,7 @@ install.packages("devtools")
 install.packages("DatabaseConnector")
 install.packages("SqlRender")
 devtools::install_github("OHDSI/CommonDataModel")  # For working with CDM-related functionality
-
-# some other packages (not OHDSI specific)
-install.packages("lubridate")
-install.packages("dplyr")
-install.packages("readr")
+install.packages("arrow")
 ```
 
 ## Install Python Dependencies
@@ -38,11 +33,13 @@ To install the Python dependencies listed in `requirements.txt`, run the followi
 pip install -r requirements.txt
 ```
 
+### for flexibility and avoiding compromise with other packages, we advise creating a virtual environment or using docker.
+
 ## Files
 
 ### 1. `db_connector.py`
 
-This script contains the `DatabaseHandler` class, which manages connections to a PostgreSQL database and can be adapted to other OHDSI-supported databases.
+This script contains the `DatabaseHandler` class, which manages connections to a PostgreSQL database.
 
 #### Key Features:
 - Establishes a connection to the CDM database (primarily tested with PostgreSQL).
@@ -60,9 +57,11 @@ database_connector = DatabaseHandler(
     password="your_password",  # Database password
     database="ohdsi_cdm",  # OHDSI CDM database
     driver_path="path_to_driver"  # path to driver for selected database
+    schema="schema" # schema for holding the database table.-- make sure it is set.
     port=port # integer that defines the port, 5432 is used if not specified.
 )
 
+### connection to the database.
 db_conn = database_connector.connect_to_db()
 
 if db_conn:
@@ -76,25 +75,27 @@ else:
 This script loads the OHDSI CDM vocabularies (version 5.3 or 5.4) from CSV files into the CDM tables in the database.
 
 #### Key Features:
-- Loads all CSV files for the standardized vocabularies from the specified directory into the corresponding create database. For clarity the database can be created using the executeSQL function from the commondatamodel package. Not minding, we also incorporated it here.
+- Loads all CSV files for the standardized vocabularies from the specified directory into the corresponding create database. For clarity the tables can be created using the execute_ddl function from the commondatamodel package. 
 
 ```python
 from db_connector import DatabaseHandler
 
 # Initialize the database connection
 database_connector = DatabaseHandler(
-    db_type="postgresql",
-    host="localhost",
-    user="postgres",
-    password="your_password",
-    database="ohdsi_cdm",
-    driver_path="path_to_driver"
+    db_type="postgresql",  # Database type (e.g., postgresql)
+    host="localhost",      # Database host
+    user="postgres",       # Database user
+    password="your_password",  # Database password
+    database="ohdsi_cdm",  # OHDSI CDM database
+    driver_path="path_to_driver"  # path to driver for selected database
+    schema="schema" # schema for holding the database table.-- make sure it is set.
+    port=port # integer that defines the port, 5432 is used if not specified.
 )
 
 # Connect to the CDM database
 db_conn = database_connector.connect_to_db()
 # generate the table in the database
-database_connector.execute_ddl(cdm_version = "value", cdm_database_schema = "schema name")
+database_connector.execute_ddl(cdm_version = "value")
 ```
 - Uses the active database connection and CDM-compliant table structure.
 
@@ -105,8 +106,7 @@ from load_csv import CSVLoader
 
 csv_loader = CSVLoader(
     db_connection=db_conn,  # Active database connection
-    database_handler=database_connector,  # DatabaseHandler instance
-    schema="schema"  # CDM schema
+    database_handler=database_connector
 )
 
 csv_loader.load_all_csvs("path_to_downloaded_csv_directory")
@@ -119,66 +119,57 @@ This is the main entry point of the application. It integrates the database conn
 #### Usage:
 
 The script connects to the CDM database and loads all relevant CDM data from OHDSI’s standardized vocabularies (versions 5.3 or 5.4).
-
-```bash
-python main.py
-```
-
 #### Workflow in Main Script:
-
-```python
-from db_connector import DatabaseHandler
-from load_csv import CSVLoader
-
-# Initialize the database connection
-database_connector = DatabaseHandler(
-    db_type="postgresql",
-    host="localhost",
-    user="postgres",
-    password="your_password",
-    database="ohdsi_cdm",
-    driver_path="path_to_driver"
-)
-
-# Connect to the CDM database
-db_conn = database_connector.connect_to_db()
-
-# Load CSVs if the connection is successful
-if db_conn:
-    csv_loader = CSVLoader(db_conn, database_connector, "cdm_table_name")
-    csv_loader.load_all_csvs("path_to_your_csv_directory")
-else:
-    print("Database connection failed.")
-```
-
-## Environment Variables
+#### Environment Variables
 
 To ensure security and flexibility, it is recommended to store database credentials as environment variables rather than hardcoding them into the script.
 
 Here’s an example of how to set environment variables:
 
 ```bash
-export DB_HOST='your_host'
-export DB_NAME='ohdsi_cdm'
-export DB_USER='your_username'
-export DB_PASSWORD='your_password'
+- `DB_PORT`: The port number for the database.
+- `DB_TYPE`: The type of the database (e.g., `postgresql`, `mysql`).
+- `DB_SERVER`: The server address of the database.
+- `DB_NAME`: The name of the database.
+- `DB_PASSWORD`: The password for the database user.
+- `DB_USER`: The username for the database.
+- `DRIVER_PATH`: The path to the database driver.
+- `DB_SCHEMA`: The schema name in the database.
+- `CSV_PATH`: The path to the CSV file to be loaded.
+- `CDM_VERSION`: The version of the Common Data Model (CDM).
+
 ```
 
 Update the script to read these variables using `os.getenv`:
 
 ```python
 import os
+from dotenv import load_dotenv
 from db_connector import DatabaseHandler
+from load_csv import CSVLoader
+
+load_dotenv()
+
 
 database_connector = DatabaseHandler(
-    db_type="postgresql",
-    host=os.getenv('DB_HOST'),
+    db_type=os.getenv('DB_TYPE'),
+    host=os.getenv('DB_SERVER'),
     user=os.getenv('DB_USER'),
     password=os.getenv('DB_PASSWORD'),
     database=os.getenv('DB_NAME'),
-    driver_path="path_to_driver"
+    driver_path=os.getenv('DRIVER_PATH'),
+    schema=os.getenv('DB_SCHEMA'),
+    port=os.getenv('DB_PORT')
 )
+
+db_conn = database_connector.connect_to_db()
+csv_loader = CSVLoader(db_conn, database_connector)
+csv_loader.load_all_csvs(os.get('CSV_PATH'))
+
+# to create the cdm tables.
+database_connector.execute_ddl(os.get('CDM_VERSION'))
 ```
+
 
 ## Credits
 

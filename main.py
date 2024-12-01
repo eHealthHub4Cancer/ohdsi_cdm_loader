@@ -1,14 +1,33 @@
 from ohdsi_cdm_loader.db_connector import DatabaseHandler
 from ohdsi_cdm_loader.load_csv import CSVLoader
+from dotenv import load_dotenv
+import os
 
-# load the packages.
+load_dotenv()
 
-database_connector = DatabaseHandler("postgresql", "localhost", "postgres", "postgres", "ohdsi_tutorial", "C:/Users/23434813/Desktop/AML data/ohdsi/", 5442)
-db_conn = database_connector.connect_to_db()
-# database_connector.execute_ddl("5.4", "ohdsi_tutorials")
-csv_loader = CSVLoader(db_conn, database_connector, "ohdsi_tutorials")
-csv_loader.load_all_csvs("C:/Users/23434813/Desktop/latest_vocabularies/voc_20240701_v5/")
+# set the values.
+db_port = os.getenv('DB_PORT')
+db_type = os.getenv('DB_TYPE')
+db_server = os.getenv('DB_SERVER')
+db_name = os.getenv('DB_NAME')
+db_password = os.getenv('DB_PASSWORD')
+db_user = os.getenv('DB_USER')
+driver_path = os.getenv('DRIVER_PATH')
+db_schema = os.getenv('DB_SCHEMA')
+csv_path = os.getenv('CSV_PATH')
+cdm_version = os.getenv('CDM_VERSION')
 
-# get_conn = connect_to_db("postgresql", "localhost", "postgres", "Daybme20@me", "ohdsi", "C:/Users/23434813/Desktop/AML data/ohdsi/", db_conn)
+def main():
+    database_connector = DatabaseHandler(
+        db_type, db_server, db_user,
+        db_password, db_name, driver_path,
+        db_schema, db_port
+    )
+    db_conn = database_connector.connect_to_db()
+    # database_connector.execute_ddl("5.4", "aml_practice")
+    csv_loader = CSVLoader(db_conn, database_connector)
+    csv_loader.load_all_csvs(csv_path)
 
-# load_all_csvs("C:/Users/23434813/Desktop/latest_vocabularies/voc_20240701_v5/", get_conn, "ohdsi_practice")
+if __name__ == "__main__":
+    main()
+
