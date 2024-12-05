@@ -15,12 +15,16 @@ import subprocess
 
 setup(
     name='cdm_csv_loader',
-    version='0.1.4',
+    version='0.1.5',
     packages=find_packages(),
     python_requires='>=3.7',
     install_requires=[
         'pandas>=1.0.0',
-        'rpy2==3.5.12'
+        'rpy2==3.5.12',
+        'pg_bulk_loader==1.1.2',
+        'pyarrow==18.1.0',
+        'python-dotenv==1.0.1',
+        'tqdm==4.67.1'
     ],
     description='A package for loading OHDSI CDM CSV files into a relational database.',
     long_description=open('README2.md').read(),  # Detailed description from your README
