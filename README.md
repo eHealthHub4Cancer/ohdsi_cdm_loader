@@ -23,6 +23,7 @@ install.packages("DatabaseConnector")
 install.packages("SqlRender")
 devtools::install_github("OHDSI/CommonDataModel")  # For working with CDM-related functionality
 install.packages("arrow")
+devtools::install_github("OHDSI/ETL-Synthea")
 ```
 
 ## Install Python Dependencies
