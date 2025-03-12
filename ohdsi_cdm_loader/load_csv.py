@@ -19,14 +19,31 @@ if hasattr(asyncio, 'WindowsSelectorEventLoopPolicy'):
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 class CSVLoader:
-    def __init__(self, conn: object, db_handler: object):
+    def __init__(self, conn=None, db_handler=None, 
+                 # Alias parameters to match documentation
+                 db_connection=None, database_handler=None):
         """
         Initialize the CSVLoader class.
 
         Args:
             conn (object): Database connection object.
-            schema (str): Database schema name.
+            db_handler (object): Database handler object.
+            
+            # Documentation aliases
+            db_connection (object): Alias for conn - Database connection object.
+            database_handler (object): Alias for db_handler - Database handler object.
         """
+        # Handle the alias parameters
+        conn = db_connection if conn is None else conn
+        db_handler = database_handler if db_handler is None else db_handler
+        
+        # Check for required parameters
+        if conn is None or db_handler is None:
+            missing = []
+            if conn is None: missing.append("conn/db_connection")
+            if db_handler is None: missing.append("db_handler/database_handler")
+            raise ValueError(f"Missing required parameters: {', '.join(missing)}")
+        
         self.conn = conn
         self.schema = db_handler._schema
         self.db_connect = db_handler

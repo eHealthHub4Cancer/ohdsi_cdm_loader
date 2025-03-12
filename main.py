@@ -37,14 +37,14 @@ cdm_order =[
 
 def main():
     database_connector = DatabaseHandler(
-        db_type, db_server, db_user,
-        db_password, db_name, driver_path,
-        synthea_schema, db_port
+     db_type=db_type, host=db_server, user=db_user,
+     password=db_password, database=db_name, driver_path=driver_path,
+     schema=synthea_schema, port=db_port
     )
     db_conn = database_connector.connect_to_db()
     # database_connector.execute_ddl("5.4", "aml_practice")
     database_connector.set_schema(synthea_schema)
-    csv_loader = CSVLoader(db_conn, database_connector)
+    csv_loader = CSVLoader(db_connection=db_conn, database_handler=database_connector)
     csv_loader.load_all_csvs(synthea_csv, synthea_order, upper=False, synthea=True)
 
     database_connector.create_map_and_rollup_tables(

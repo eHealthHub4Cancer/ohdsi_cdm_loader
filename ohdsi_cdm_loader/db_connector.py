@@ -8,7 +8,13 @@ from pg_bulk_loader import PgConnectionDetail, batch_insert_to_postgres
 logging.basicConfig(level=logging.INFO)
 
 class DatabaseHandler:
-    def __init__(self, dbms: str, server: str, user: str, password: str, database: str, driver_path: str, schema: str, port: int=5432):
+    def __init__(self, dbms: Optional[str] = None , server: Optional[str] = None, user: Optional[str] = None, 
+                 password: Optional[str] = None, database: Optional[str] = None, 
+                 driver_path: Optional[str] = None, schema: Optional[str] = None, port: int=5432,
+                 # Alias parameters
+                 db_type: Optional[str] = None,
+                 host: Optional[str] = None
+                 ):
         """
         Initialize the DatabaseHandler with the given parameters.
 
@@ -21,6 +27,24 @@ class DatabaseHandler:
         :param port: This defines the port of the database.
         :param db_connector: Database connector object.
         """
+     
+
+        # Handle the alias parameters (map to the original parameter names)
+        dbms = db_type if dbms is None else dbms 
+        server = host if server is None else server
+
+        # check for required parameters 
+        if dbms is None or server is None or user is None or password is None or database is None or driver_path is None or schema is None:
+            missing = []
+            if dbms is None : missing.append("dbms/db_type")
+            if server is None: missing.append("server/host")
+            if user is None: missing.append("user")
+            if password is None: missing.append("password")
+            if database is None: missing.append("database")
+            if driver_path is None: missing.append("driver_path")
+            if schema is None: missing.append("schema")
+            raise ValueError(f"Missing required parameters: {', '.join(missing)}")
+        
         self._dbms = dbms
         self._server = server
         self._user = user

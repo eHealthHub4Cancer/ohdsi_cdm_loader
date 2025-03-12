@@ -77,6 +77,13 @@ This script loads the OHDSI CDM vocabularies (version 5.3 or 5.4) from CSV files
 #### Key Features:
 - Loads all CSV files for the standardized vocabularies from the specified directory into the corresponding create database. For clarity the tables can be created using the execute_ddl function from the commondatamodel package. 
 
+#### Prerequisites
+Before using the DatabaseHandler:
+
+1. **Download vocabulary files**: Get the latest OHDSI standardized vocabularies from [OHDSI Athena](https://athena.ohdsi.org/vocabulary/list)
+
+2. **Download database drivers**: Obtain the appropriate JDBC driver for PostgreSQL database from [DatabaseConnector documentation](https://ohdsi.github.io/DatabaseConnector/articles/Connecting.html)
+
 ```python
 from db_connector import DatabaseHandler
 
@@ -100,7 +107,7 @@ database_connector.execute_ddl(cdm_version = "value")
 - Uses the active database connection and CDM-compliant table structure.
 
 #### Example (Python):
-#### Note: please download the latest vocabulary from [OHDSI vocabulary list](https://athena.ohdsi.org/vocabulary/list)
+
 ```python
 from load_csv import CSVLoader
 

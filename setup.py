@@ -29,8 +29,8 @@ setup(
     description='A package for loading OHDSI CDM CSV files into a relational database.',
     long_description=open('README2.md').read(),  # Detailed description from your README
     long_description_content_type="text/markdown",
-    author='David Chibuike Ikechi Akwuru',
-    author_email='akwuru.david@ul.ie',
+    author='David Chibuike Ikechi Akwuru, Jeremiah Akintomide',
+    author_email='akwuru.david@ul.ie, akintomide.jeremiah@ul.ie',
     url='https://github.com/DavidIkechi/ohdsi_cdm_loader.git',
     classifiers=[
         'Programming Language :: Python :: 3',
