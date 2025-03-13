@@ -19,14 +19,31 @@ if hasattr(asyncio, 'WindowsSelectorEventLoopPolicy'):
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 class CSVLoader:
-    def __init__(self, conn: object, db_handler: object):
+    def __init__(self, conn=None, db_handler=None, 
+                 # Alias parameters to match documentation
+                 db_connection=None, database_handler=None):
         """
         Initialize the CSVLoader class.
 
         Args:
             conn (object): Database connection object.
-            schema (str): Database schema name.
+            db_handler (object): Database handler object.
+            
+            # Documentation aliases
+            db_connection (object): Alias for conn - Database connection object.
+            database_handler (object): Alias for db_handler - Database handler object.
         """
+        # Handle the alias parameters
+        conn = db_connection if conn is None else conn
+        db_handler = database_handler if db_handler is None else db_handler
+        
+        # Check for required parameters
+        if conn is None or db_handler is None:
+            missing = []
+            if conn is None: missing.append("conn/db_connection")
+            if db_handler is None: missing.append("db_handler/database_handler")
+            raise ValueError(f"Missing required parameters: {', '.join(missing)}")
+        
         self.conn = conn
         self.schema = db_handler._schema
         self.db_connect = db_handler
@@ -135,7 +152,7 @@ class CSVLoader:
                 drop_and_create_index=False
             )
 
-    async def load_csv_to_db(self, file_path: str, table_name: str, chunk_size:int=100000, batch_size: int= 500000) -> None:
+    async def load_csv_to_db(self, file_path: str, table_name: str, chunk_size:int=100000, batch_size: int= 500000, synthea: bool=False) -> None:
         """
         Load a CSV file into the specified database table.
 
@@ -147,7 +164,10 @@ class CSVLoader:
             None
         """
         try:
-            chunks = pd.read_csv(file_path, sep='\t', na_values=[], keep_default_na=False, chunksize=chunk_size, low_memory=False)
+            if synthea:
+                chunks = pd.read_csv(file_path, chunksize=chunk_size, low_memory=False)
+            else:
+                chunks = pd.read_csv(file_path, sep='\t', na_values=[], keep_default_na=False, chunksize=chunk_size, low_memory=False)
             # list to hold chunk while loading.
             df_list = []
             for chunk in tqdm(chunks, desc="Reading CSV in chunks"):
@@ -170,7 +190,9 @@ class CSVLoader:
         except Exception as e:
             raise RuntimeError(f"Error loading '{file_path}' into '{table_name}': {e}")
 
-    def load_all_csvs(self, folder_path: str) -> None:
+    def load_all_csvs(self, folder_path: str, table_order: list=['vocabulary', 
+            'domain', 'concept_class', 'concept', 'relationship', 'concept_relationship', 
+            'concept_ancestor', 'concept_synonym', 'drug_strength'], upper: bool=True, synthea: bool=False) -> None:
         """
         Load all CSV files from the specified folder into the database schema.
 
@@ -180,30 +202,8 @@ class CSVLoader:
         Returns:
             None
         """
-        table_order = [
-            'vocabulary', 
-            'domain',
-            'concept_class', 
-            'concept',
-            'relationship', 
-            'concept_relationship', 
-            'concept_ancestor',
-            'concept_synonym', 
-            'drug_strength'
-        ]
-
-        file_to_table_mapping = {
-            'vocabulary.csv': 'vocabulary',
-            'domain.csv': 'domain',
-            'concept_class.csv': 'concept_class',
-            'concept.csv': 'concept',
-            'relationship.csv': 'relationship',
-            'concept_relationship.csv': 'concept_relationship',
-            'concept_ancestor.csv': 'concept_ancestor',
-            'concept_synonym.csv': 'concept_synonym',
-            'drug_strength.csv': 'drug_strength'
-        }
-
+        table_order = table_order
+        file_to_table_mapping = {f"{table}.csv": table.lower() for table in table_order}
         missing_files = []
 
         try:
@@ -219,13 +219,16 @@ class CSVLoader:
 
         for table in table_order:
             filename = file_to_table_mapping.get(f'{table}.csv')
+            print(filename)
             if filename:
                 self.db_connect.disable_foreign_key_checks(table)
-
-                file_path = os.path.join(folder_path, f'{table.upper()}.csv')
+                if upper:
+                    table = table.upper()
+                    print(f"Table: {table}")
+                file_path = os.path.join(folder_path, f'{table}.csv')
                 if os.path.exists(file_path):
                     try:
-                        asyncio.run(self.load_csv_to_db(file_path, table))
+                        asyncio.run(self.load_csv_to_db(file_path, table, synthea=synthea))
                     except Exception as e:
                         raise RuntimeError(f"Failed to load '{filename}' into '{table}': {e}")
                 else:

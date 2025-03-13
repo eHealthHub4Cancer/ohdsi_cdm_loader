@@ -8,7 +8,13 @@ from pg_bulk_loader import PgConnectionDetail, batch_insert_to_postgres
 logging.basicConfig(level=logging.INFO)
 
 class DatabaseHandler:
-    def __init__(self, dbms: str, server: str, user: str, password: str, database: str, driver_path: str, schema: str, port: int=5432):
+    def __init__(self, dbms: Optional[str] = None , server: Optional[str] = None, user: Optional[str] = None, 
+                 password: Optional[str] = None, database: Optional[str] = None, 
+                 driver_path: Optional[str] = None, schema: Optional[str] = None, port: int=5432,
+                 # Alias parameters
+                 db_type: Optional[str] = None,
+                 host: Optional[str] = None
+                 ):
         """
         Initialize the DatabaseHandler with the given parameters.
 
@@ -21,6 +27,24 @@ class DatabaseHandler:
         :param port: This defines the port of the database.
         :param db_connector: Database connector object.
         """
+     
+
+        # Handle the alias parameters (map to the original parameter names)
+        dbms = db_type if dbms is None else dbms 
+        server = host if server is None else server
+
+        # check for required parameters 
+        if dbms is None or server is None or user is None or password is None or database is None or driver_path is None or schema is None:
+            missing = []
+            if dbms is None : missing.append("dbms/db_type")
+            if server is None: missing.append("server/host")
+            if user is None: missing.append("user")
+            if password is None: missing.append("password")
+            if database is None: missing.append("database")
+            if driver_path is None: missing.append("driver_path")
+            if schema is None: missing.append("schema")
+            raise ValueError(f"Missing required parameters: {', '.join(missing)}")
+        
         self._dbms = dbms
         self._server = server
         self._user = user
@@ -33,6 +57,7 @@ class DatabaseHandler:
         self._common_data_model = importr('CommonDataModel')
         self._port = port
         self._schema = schema
+        self._etl_synthea = importr('ETLSyntheaBuilder')
         self.create_bulk_connection()
 
     def create_bulk_connection(self):
@@ -122,6 +147,10 @@ class DatabaseHandler:
         """set the connection details"""
         self._conn_details = connect_details
 
+    def set_schema(self, schema: str) -> None:
+        """Set the database schema."""
+        self._schema = schema
+
     def connect_to_db(self) -> object:
         """
         Establish a connection to the database.
@@ -209,3 +238,75 @@ class DatabaseHandler:
             logging.info("CDM DDL execution completed successfully.")
         except RRuntimeError as e:
             raise Exception(f"Error executing CDM DDL: {e}")
+        
+    def create_synthea_tables(self, synthea_schema, version) -> None:
+        """
+        Create Synthea tables in the database.
+        synthea_schema: The schema for the Synthea tables.
+        """
+        try:
+            self._etl_synthea.CreateSyntheaTables(
+                connectionDetails=self._conn_details,
+                syntheaSchema=synthea_schema,
+                syntheaVersion=version
+            )
+            logging.info("Synthea tables created successfully.")
+        except RRuntimeError as e:
+            raise Exception(f"Error creating Synthea tables: {e}")
+        
+    def create_map_and_rollup_tables(self, cdm_schema: str, synthea_schema:str, cdm_version: str, synthea_version: str) -> None:
+        """
+        Create the map and rollup tables for the specified CDM version.
+        :param cdm_version: The version of the CDM for which to create the map and rollup tables.
+        :raises Exception: If there is an error creating the map and rollup tables.
+        """
+        try:
+            self._etl_synthea.CreateMapAndRollupTables(
+                connectionDetails=self._conn_details,
+                cdmVersion=cdm_version,
+                cdmSchema=cdm_schema,
+                syntheaSchema=synthea_schema,
+                syntheaVersion=synthea_version
+            )
+            logging.info("Map and rollup tables created successfully.")
+        except RRuntimeError as e:
+            raise Exception(f"Error creating map and rollup tables: {e}")
+        
+    def create_indices(self, cdm_schema: str, synthea_schema:str, synthea_version: str) -> None:
+        """
+        Create the map and rollup tables for the specified CDM version.
+        :param cdm_version: The version of the CDM for which to create the map and rollup tables.
+        :raises Exception: If there is an error creating the map and rollup tables.
+        """
+        try:
+            self._etl_synthea.CreateExtraIndices(
+                connectionDetails=self._conn_details,
+                cdmSchema=cdm_schema,
+                syntheaSchema=synthea_schema,
+                syntheaVersion=synthea_version
+            )
+            logging.info("Map and rollup tables created successfully.")
+        except RRuntimeError as e:
+            raise Exception(f"Error creating map and rollup tables: {e}")
+        
+    def load_events(self, cdm_schema: str, synthea_schema:str, cdm_version: str, synthea_version: str) -> None:
+        """
+        Create the map and rollup tables for the specified CDM version.
+        :param cdm_version: The version of the CDM for which to create the map and rollup tables.
+        :raises Exception: If there is an error creating the map and rollup tables.
+        """
+        try:
+            query = "SET session_replication_role = 'replica';"
+            self._db_connector.executeSql(self._conn, query)
+            self._etl_synthea.LoadEventTables(
+                connectionDetails=self._conn_details,
+                cdmVersion=cdm_version,
+                cdmSchema=cdm_schema,
+                syntheaSchema=synthea_schema,
+                syntheaVersion=synthea_version
+            )
+            query = "SET session_replication_role = 'origin';"
+            self._db_connector.executeSql(self._conn, query)
+            logging.info("Map and rollup tables created successfully.")
+        except RRuntimeError as e:
+            raise Exception(f"Error creating map and rollup tables: {e}")
