@@ -131,8 +131,8 @@ class CSVLoader:
             max_pool_size: int
             min_pool_size: int
         """    
-        batch_size = 250000
-        num_batches = (len(data) + batch_size - 1) // batch_size  # Calculate total number of batches
+        # Calculate the total number of batches using the provided batch size
+        num_batches = (len(data) + batch_size - 1) // batch_size
 
         # Insert data into the database in batches with progress tracking
         for i in tqdm(range(num_batches), desc="Inserting batches into database"):
@@ -221,16 +221,15 @@ class CSVLoader:
             filename = file_to_table_mapping.get(f'{table}.csv')
             print(filename)
             if filename:
-                self.db_connect.disable_foreign_key_checks(table)
-                if upper:
-                    table = table.upper()
-                    print(f"Table: {table}")
-                file_path = os.path.join(folder_path, f'{table}.csv')
+                table_name = table.upper() if upper else table
+                self.db_connect.disable_foreign_key_checks(table_name)
+                print(f"Table: {table_name}") if upper else None
+                file_path = os.path.join(folder_path, f'{table_name}.csv')
                 if os.path.exists(file_path):
                     try:
-                        asyncio.run(self.load_csv_to_db(file_path, table, synthea=synthea))
+                        asyncio.run(self.load_csv_to_db(file_path, table_name, synthea=synthea))
                     except Exception as e:
-                        raise RuntimeError(f"Failed to load '{filename}' into '{table}': {e}")
+                        raise RuntimeError(f"Failed to load '{filename}' into '{table_name}': {e}")
                 else:
                     logging.warning(f"File '{filename}' not found in folder '{folder_path}'.")
                     missing_files.append(filename)
