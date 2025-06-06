@@ -72,6 +72,15 @@ python main.py
 
 to connect to the database, load the CSV files and execute the additional ETL steps.
 
+### Docker
+
+Alternatively, build the Docker image and run `main.py` automatically:
+
+```bash
+docker compose build
+docker compose run cdm_loader
+```
+
 ## Next Steps
 
 - Inspect `db_connector.py` and `load_csv.py` to see how Python and R work together.
