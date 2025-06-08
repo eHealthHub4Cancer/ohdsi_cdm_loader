@@ -5,20 +5,21 @@ import os
 
 load_dotenv()
 
-# set the values.
-db_port = os.getenv('DB_PORT')
-db_type = os.getenv('DB_TYPE')
-db_server = os.getenv('DB_SERVER')
-db_name = os.getenv('DB_NAME')
-db_password = os.getenv('DB_PASSWORD')
-db_user = os.getenv('DB_USER')
-driver_path = os.getenv('DRIVER_PATH')
-db_schema = os.getenv('DB_SCHEMA')
-csv_path = os.getenv('CSV_PATH')
-cdm_version = os.getenv('CDM_VERSION')
-synthea_version = os.getenv('SYNTHEA_VERSION')
-synthea_schema = os.getenv('SYNTHEA_SCHEMA')
-synthea_csv = os.getenv('SYNTHEA_CSV')
+# Set the values from the environment. These are typically configured in a
+# `.env` file or passed in via Docker.
+db_port = os.getenv("DB_PORT")
+db_type = os.getenv("DB_TYPE")
+db_server = os.getenv("DB_SERVER")
+db_name = os.getenv("DB_NAME")
+db_password = os.getenv("DB_PASSWORD")
+db_user = os.getenv("DB_USER")
+driver_path = os.getenv("DRIVER_PATH")
+db_schema = os.getenv("DB_SCHEMA")  # CDM schema
+csv_path = os.getenv("CSV_PATH")
+cdm_version = os.getenv("CDM_VERSION")
+synthea_version = os.getenv("SYNTHEA_VERSION")
+synthea_schema = os.getenv("SYNTHEA_SCHEMA")
+synthea_csv = os.getenv("SYNTHEA_CSV")
 
 synthea_order = [
     'allergies', 'careplans', 'conditions',
@@ -36,31 +37,56 @@ cdm_order =[
     'drug_strength']
 
 def main():
+    """Entry point for running the CDM loader."""
     database_connector = DatabaseHandler(
-     db_type=db_type, host=db_server, user=db_user,
-     password=db_password, database=db_name, driver_path=driver_path,
-     schema=synthea_schema, port=db_port
+        db_type=db_type,
+        host=db_server,
+        user=db_user,
+        password=db_password,
+        database=db_name,
+        driver_path=driver_path,
+        schema=db_schema,
+        port=int(db_port) if db_port else 5432,
     )
+
     db_conn = database_connector.connect_to_db()
-    # database_connector.execute_ddl("5.4", "aml_practice")
-    database_connector.set_schema(synthea_schema)
+
+    # ------------------------------------------------------------------
+    # 1. Create the CDM tables and load the vocabulary CSV files
+    # ------------------------------------------------------------------
+    database_connector.execute_ddl(cdm_version)
     csv_loader = CSVLoader(db_connection=db_conn, database_handler=database_connector)
+    csv_loader.load_all_csvs(csv_path, cdm_order, upper=False)
+
+    # ------------------------------------------------------------------
+    # 2. Create the Synthea tables and load the Synthea CSV files
+    # ------------------------------------------------------------------
+    database_connector.create_synthea_tables(synthea_schema, synthea_version)
+    database_connector.set_schema(synthea_schema)
     csv_loader.load_all_csvs(synthea_csv, synthea_order, upper=False, synthea=True)
 
+    # ------------------------------------------------------------------
+    # 3. Run additional ETL helpers
+    # ------------------------------------------------------------------
     database_connector.create_map_and_rollup_tables(
-        cdm_schema=db_schema, cdm_version=cdm_version,
-        synthea_schema=synthea_schema, synthea_version=synthea_version
-    )
-    database_connector.create_indices(
-        cdm_schema=db_schema, synthea_schema=synthea_schema, synthea_version=synthea_version
-    )
-    database_connector.load_events(
-        cdm_schema=db_schema, cdm_version=cdm_version,
-        synthea_schema=synthea_schema, synthea_version=synthea_version
+        cdm_schema=db_schema,
+        cdm_version=cdm_version,
+        synthea_schema=synthea_schema,
+        synthea_version=synthea_version,
     )
 
-    # create synthea tables.
-    # database_connector.create_synthea_tables(synthea_schema, synthea_version)
+    database_connector.create_indices(
+        cdm_schema=db_schema,
+        synthea_schema=synthea_schema,
+        synthea_version=synthea_version,
+    )
+
+    database_connector.load_events(
+        cdm_schema=db_schema,
+        cdm_version=cdm_version,
+        synthea_schema=synthea_schema,
+        synthea_version=synthea_version,
+    )
 
 if __name__ == "__main__":
     main()
