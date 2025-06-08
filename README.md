@@ -74,12 +74,16 @@ to connect to the database, load the CSV files and execute the additional ETL st
 
 ### Docker
 
-Alternatively, build the Docker image and run `main.py` automatically:
+You can run the loader together with a Postgres database using
+`docker compose`:
 
 ```bash
-docker compose build
-docker compose run cdm_loader
+docker compose up --build
 ```
+
+This starts both the `postgres` service and the `cdm_loader` service,
+which connects to the database using the credentials from your `.env`
+file.
 
 ## Next Steps
 

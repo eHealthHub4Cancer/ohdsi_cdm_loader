@@ -1,11 +1,24 @@
 version: "3.8"
 services:
+  db:
+    image: postgres:latest
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
   cdm_loader:
     build: .
+    depends_on:
+      - db
     environment:
       DB_TYPE: ${DB_TYPE}
-      DB_SERVER: ${DB_SERVER}
-      DB_PORT: ${DB_PORT}
+      DB_SERVER: db
+      DB_PORT: 5432
       DB_NAME: ${DB_NAME}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
@@ -17,3 +30,6 @@ services:
       SYNTHEA_SCHEMA: ${SYNTHEA_SCHEMA}
       SYNTHEA_CSV: ${SYNTHEA_CSV}
     command: ["python", "main.py"]
+
+volumes:
+  postgres_data:
