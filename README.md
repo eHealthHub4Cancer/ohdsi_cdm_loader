@@ -70,20 +70,25 @@ Once configured, run
 python main.py
 ```
 
-to connect to the database, load the CSV files and execute the additional ETL steps.
+to connect to the database, create the CDM tables, load the CSV files and execute the additional ETL steps.
 
 ### Docker
 
-You can run the loader together with a Postgres database using
-`docker compose`:
+The repository also contains a `docker-compose.yml` for running the loader and a
+Postgres database in containers.
+
+1. Install Docker (for Windows/macOS you can download **Docker Desktop** from
+   [docker.com](https://www.docker.com/products/docker-desktop)).
+2. Ensure the environment variables described above are available in a `.env`
+   file.
+3. Start the services with:
 
 ```bash
 docker compose up --build
 ```
 
-This starts both the `postgres` service and the `cdm_loader` service,
-which connects to the database using the credentials from your `.env`
-file.
+This command builds the loader image and starts both the `postgres` service and
+the `cdm_loader` service which runs `python main.py` automatically.
 
 ## Next Steps
 
