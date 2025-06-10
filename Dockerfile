@@ -11,6 +11,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git && \
     rm -rf /var/lib/apt/lists/*
 
+# Ensure a persistent site library for installed R packages
+RUN mkdir -p /usr/local/lib/R/site-library
+ENV R_LIBS=/usr/local/lib/R/site-library \
+    R_LIBS_USER=/usr/local/lib/R/site-library \
+    R_HOME=/usr/lib/R
+
 # Install Python dependencies
 COPY requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
