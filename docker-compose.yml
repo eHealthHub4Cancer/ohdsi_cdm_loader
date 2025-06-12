@@ -1,5 +1,8 @@
-name: ohdsi_cdm_loader_90
+name: ohdsi_cdm_csv_loader
 services:
+  # ───────────────────────────────
+  # PostgreSQL  ➜ Up (healthy)
+  # ───────────────────────────────
   db:
     image: postgres:latest
     environment:
@@ -21,13 +24,25 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+    # ← NEW
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ───────────────────────────────
+  # One-shot CDM loader ➜ Up (healthy) after ETL
+  # ───────────────────────────────
   cdm_loader:
     build: .
     depends_on:
-      - db
-    # ADD THESE MEMORY SETTINGS:
-    mem_limit: 8g        # 8GB memory limit
-    memswap_limit: 8g    # 8GB swap limit
+      db:
+        condition: service_healthy          # wait for DB health first
+    restart: "no"                           # don’t auto-respawn
+    mem_limit: 8g
+    memswap_limit: 8g
     environment:
       DB_TYPE: ${DB_TYPE}
       DB_SERVER: db
@@ -46,7 +61,24 @@ services:
       - ${HOST_DRIVER_PATH}:${DRIVER_PATH}
       - ${HOST_CSV_PATH}:${CSV_PATH}
       - ${HOST_SYNTHEA_PATH}:${SYNTHEA_CSV}
-    command: ["python", "main.py"]
+
+    # Run ETL → drop a flag file → idle forever
+    command:
+      - bash
+      - -ceu
+      - >
+        python main.py &&
+        touch /tmp/etl_done &&
+        echo '*** COMPLETED: ETL finished ***';
+        tail -f /dev/null        # keep PID 1 alive
+
+    # ← NEW
+    healthcheck:
+      test: ["CMD-SHELL", "[ -f /tmp/etl_done ]"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 1h         # give ETL time to run
 
 volumes:
   postgres_data:

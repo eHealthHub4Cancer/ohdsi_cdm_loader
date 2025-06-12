@@ -3,7 +3,6 @@ from ohdsi_cdm_loader.load_csv import CSVLoader
 from dotenv import load_dotenv
 import os
 import sys
-
 # Load environment variables
 load_dotenv()
 
@@ -94,53 +93,6 @@ def main():
         csv_loader = CSVLoader(db_connection=db_conn, database_handler=database_connector)
         csv_loader.load_all_csvs(csv_path, cdm_order, upper=False, batch_size=10000)
         print("✓ Vocabulary CSV files loaded")
-
-        # ------------------------------------------------------------------
-        # 2. Create the Synthea tables and load the Synthea CSV files
-        # ------------------------------------------------------------------
-        # if synthea_csv and os.path.exists(synthea_csv):
-        #     print(f"\n3. Creating Synthea tables (version {synthea_version})...")
-        #     database_connector.create_synthea_tables(synthea_schema, synthea_version)
-        #     database_connector.set_schema(synthea_schema)
-        #     print("✓ Synthea tables created")
-            
-        #     print(f"4. Loading Synthea CSV files from {synthea_csv}...")
-        #     csv_loader.load_all_csvs(synthea_csv, synthea_order, upper=False, synthea=True)
-        #     print("✓ Synthea CSV files loaded")
-        # else:
-        #     print(f"\n3. Skipping Synthea loading (path not provided or doesn't exist: {synthea_csv})")
-
-        # ------------------------------------------------------------------
-        # 3. Run additional ETL helpers
-        # ------------------------------------------------------------------
-        # Uncomment these as needed:
-        
-        # print("\n5. Creating map and rollup tables...")
-        # database_connector.create_map_and_rollup_tables(
-        #     cdm_schema=db_schema,
-        #     cdm_version=cdm_version,
-        #     synthea_schema=synthea_schema,
-        #     synthea_version=synthea_version,
-        # )
-        # print("✓ Map and rollup tables created")
-
-        # print("\n6. Creating indices...")
-        # database_connector.create_indices(
-        #     cdm_schema=db_schema,
-        #     synthea_schema=synthea_schema,
-        #     synthea_version=synthea_version,
-        # )
-        # print("✓ Indices created")
-
-        # print("\n7. Loading events...")
-        # database_connector.load_events(
-        #     cdm_schema=db_schema,
-        #     cdm_version=cdm_version,
-        #     synthea_schema=synthea_schema,
-        #     synthea_version=synthea_version,
-        # )
-        # print("✓ Events loaded")
-
         print("\n=== CDM Loader completed successfully! ===")
 
     except Exception as e:
@@ -158,3 +110,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    

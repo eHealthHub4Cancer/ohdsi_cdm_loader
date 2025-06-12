@@ -48,7 +48,7 @@ The key packages are:
 
 ## Configuration
 
-`main.py` relies on environment variables.  These can be stored in a `.env` file
+`main.py` relies on environment variables.  You can modify the codes here based on what you aim to achieve before running. These can be stored in a `.env` file
 (a sample `.env.example` is provided):
 
 ```
@@ -85,7 +85,7 @@ to connect to the database, create the CDM tables, load the CSV files and execut
 ### Docker
 
 The repository also contains a `docker-compose.yml` for running the loader and a
-Postgres database in containers.
+Postgres database in containers. (**To avoid dependency issues, this is recommended**)
 
 1. Install Docker (for Windows/macOS you can download **Docker Desktop** from
    [docker.com](https://www.docker.com/products/docker-desktop)).
@@ -97,11 +97,19 @@ Postgres database in containers.
 python launch.py
 ```
 
-This convenience script runs `docker compose up --build` and, once the
-containers are running, automatically opens your default web browser to a
-`status.html` page showing a short success message.
+This convenience script runs `docker compose up -d --await`, once complete it shows a healthy state for the containers.
 
-If you prefer to run Compose manually simply execute `docker compose up --build`
+```bash
+[+] Running 5/5
+ ✔ cdm_loader                                   Built                                                                 0.0s 
+ ✔ Network ohdsi_cdm_csv_loader_default         Created                                                               0.1s 
+ ✔ Volume "ohdsi_cdm_csv_loader_postgres_data"  Created                                                               0.0s 
+ ✔ Container ohdsi_cdm_csv_loader-db-1          Healthy                                                               6.9s 
+ ✔ Container ohdsi_cdm_csv_loader-cdm_loader-1  Healthy                                                            1169.8s 
+
+ ```
+
+If you prefer to run Compose manually simply execute `docker compose up -d --await`
 instead.
 
 ## Next Steps
