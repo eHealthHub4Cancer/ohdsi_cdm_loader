@@ -86,12 +86,14 @@ def main():
         # 1. Create the CDM tables and load the vocabulary CSV files
         # ------------------------------------------------------------------
         print(f"\n1. Creating CDM tables (version {cdm_version})...")
+        # create schema if it doesn't exist
+        database_connector.create_cdm_schema(db_schema)
         database_connector.execute_ddl(cdm_version)
         print("✓ CDM tables created")
 
         print(f"\n2. Loading vocabulary CSV files from {csv_path}...")
         csv_loader = CSVLoader(db_connection=db_conn, database_handler=database_connector)
-        csv_loader.load_all_csvs(csv_path, cdm_order, upper=False, batch_size=10000)
+        csv_loader.load_all_csvs(csv_path, cdm_order, upper=False, batch_size=50000)
         print("✓ Vocabulary CSV files loaded")
         print("\n=== CDM Loader completed successfully! ===")
 

@@ -239,6 +239,19 @@ class DatabaseHandler:
         except RRuntimeError as e:
             raise Exception(f"Error executing CDM DDL: {e}")
         
+    def create_cdm_schema(self, schema: str) -> None:
+        """
+        Create the Common Data Model (CDM) schema in the database.
+        :param schema: The schema to create for the CDM.
+        :raises Exception: If there is an error creating the CDM schema.
+        """
+        try:
+            query = f"CREATE SCHEMA IF NOT EXISTS {schema};"
+            self._db_connector.executeSql(self._conn, query)
+            logging.info(f"CDM schema '{schema}' created successfully.")
+        except Exception as e:
+            raise Exception(f"Error creating CDM schema '{schema}': {e}")
+        
     def create_synthea_tables(self, synthea_schema, version) -> None:
         """
         Create Synthea tables in the database.
