@@ -168,31 +168,30 @@ class CSVLoader:
                 chunks = pd.read_csv(file_path, chunksize=chunk_size, low_memory=False)
             else:
                 chunks = pd.read_csv(file_path, sep='\t', na_values=[], keep_default_na=False, chunksize=chunk_size, low_memory=False)
-            # list to hold chunk while loading.
-            df_list = []
-            for chunk in tqdm(chunks, desc="Reading CSV in chunks"):
-                df_list.append(chunk)
 
-            # concatenate chunks.    
-            df = pd.concat(df_list, ignore_index=True)
-            rdf_2 = df.copy(deep=True)
-            rdf_2.columns = rdf_2.columns.str.lower()
-            # # Convert data types
-            cleaned_rdf = self.compare_and_convert(rdf_2, table_name)
-            await self.bulk_load_data(batch_size=batch_size,
-                                data=cleaned_rdf,
-                                table_name=table_name,
-                                max_pool_size=20,
-                                min_pool_size=20)
-      
-            logging.info(f"Loaded data into table '{self.schema}.{table_name}'.")
+            for i, chunk in enumerate(tqdm(chunks, desc="Streaming CSV chunks into DB"), start=1):
+                chunk.columns = chunk.columns.str.lower()
+                cleaned_chunk = self.compare_and_convert(chunk, table_name)
+
+                await self.bulk_load_data(
+                    batch_size=batch_size,
+                    data=cleaned_chunk,
+                    table_name=table_name,
+                    max_pool_size=20,
+                    min_pool_size=20
+                )
+
+                logging.info(f"Loaded chunk {i} into '{self.schema}.{table_name}'.")
+
+            logging.info(f"Completed streaming all chunks into '{self.schema}.{table_name}'.")
 
         except Exception as e:
             raise RuntimeError(f"Error loading '{file_path}' into '{table_name}': {e}")
 
+
     def load_all_csvs(self, folder_path: str, table_order: list=['vocabulary', 
-            'domain', 'concept_class', 'concept', 'relationship', 'concept_relationship', 
-            'concept_ancestor', 'concept_synonym', 'drug_strength'], upper: bool=True, synthea: bool=False) -> None:
+            'domain', 'concept_class', 'relationship', 'drug_strength',  'concept_synonym', 'concept', 'concept_relationship', 
+            'concept_ancestor'], batch_size: int = 500000, upper: bool=True, synthea: bool=False) -> None:
         """
         Load all CSV files from the specified folder into the database schema.
 
@@ -227,7 +226,7 @@ class CSVLoader:
                 file_path = os.path.join(folder_path, f'{table_name}.csv')
                 if os.path.exists(file_path):
                     try:
-                        asyncio.run(self.load_csv_to_db(file_path, table_name, synthea=synthea))
+                        asyncio.run(self.load_csv_to_db(file_path, table_name, synthea=synthea, batch_size=batch_size))
                     except Exception as e:
                         raise RuntimeError(f"Failed to load '{filename}' into '{table_name}': {e}")
                 else:

@@ -1,4 +1,4 @@
-version: "3.8"
+name: ohdsi_cdm_loader_90
 services:
   db:
     image: postgres:latest
@@ -6,6 +6,16 @@ services:
       POSTGRES_DB: ${DB_NAME}
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
+    command: >
+      postgres
+      -c max_wal_size=4GB
+      -c min_wal_size=1GB
+      -c checkpoint_completion_target=0.9
+      -c shared_buffers=512MB
+      -c effective_cache_size=2GB
+      -c maintenance_work_mem=256MB
+      -c work_mem=64MB
+      -c wal_buffers=32MB
     ports:
       - "${DB_PORT:-5432}:5432"
     volumes:
@@ -15,6 +25,9 @@ services:
     build: .
     depends_on:
       - db
+    # ADD THESE MEMORY SETTINGS:
+    mem_limit: 8g        # 8GB memory limit
+    memswap_limit: 8g    # 8GB swap limit
     environment:
       DB_TYPE: ${DB_TYPE}
       DB_SERVER: db
@@ -29,6 +42,10 @@ services:
       SYNTHEA_VERSION: ${SYNTHEA_VERSION}
       SYNTHEA_SCHEMA: ${SYNTHEA_SCHEMA}
       SYNTHEA_CSV: ${SYNTHEA_CSV}
+    volumes:
+      - ${HOST_DRIVER_PATH}:${DRIVER_PATH}
+      - ${HOST_CSV_PATH}:${CSV_PATH}
+      - ${HOST_SYNTHEA_PATH}:${SYNTHEA_CSV}
     command: ["python", "main.py"]
 
 volumes:
