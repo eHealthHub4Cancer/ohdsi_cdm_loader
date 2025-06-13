@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 # -------------------------------------------------------------
-# installer.R – R-package bootstrap using {devtools}
+# installer.R – R‑package bootstrap **without** {devtools}
 # -------------------------------------------------------------
 options(error = function() {
   cat("❌ installer.R halted with an error – aborting\n")
@@ -23,39 +23,22 @@ options(
   install.packages.compile.from.source = "ifneeded"  # binary first, else source
 )
 
-## 3. Core CRAN / R-universe packages ----------------------------
-cran_pkgs <- c(
+## 3. Core packages (CRAN / R‑Universe) --------------------------
+core_pkgs <- c(
   "DatabaseConnector",
   "SqlRender",
   "arrow",
-  "devtools"
+  "CommonDataModel"
 )
+
 install2 <- Sys.which("install2.r")
 if (nzchar(install2)) {
-  system2(install2, c("--error", sprintf("-l%s", local_lib), cran_pkgs))
+  system2(install2, c("--error", sprintf("-l%s", local_lib), core_pkgs))
 } else {
-  install.packages(cran_pkgs, lib = local_lib, dependencies = TRUE)
+  install.packages(core_pkgs, lib = local_lib, dependencies = TRUE)
 }
 
-## 4. GitHub-only packages via devtools --------------------------
-github_repos <- c(
-  "OHDSI/CommonDataModel",
-  "OHDSI/ETL-Synthea"
-)
-if (!requireNamespace("devtools", quietly = TRUE))
-  install.packages("devtools", lib = local_lib)
-
-for (repo in github_repos) {
-  devtools::install_github(
-    repo,
-    lib          = local_lib,
-    dependencies = TRUE,
-    upgrade      = "never",
-    quiet        = TRUE
-  )
-}
-
-## 5. Sanity check ----------------------------------------------
+## 4. Sanity check -----------------------------------------------
 required <- c("DatabaseConnector", "SqlRender")
 missing  <- required[!vapply(required, requireNamespace, logical(1), quietly = TRUE)]
 if (length(missing))
@@ -63,12 +46,13 @@ if (length(missing))
 
 cat("✅ All critical packages are present\n")
 
-## 6. Summary ----------------------------------------------------
+## 5. Summary -----------------------------------------------------
 cat("\nInstalled packages in ", local_lib, ":\n", sep = "")
 print(installed.packages(lib.loc = local_lib)[, c("Package", "Version")])
 
-## 7. Extra manual installs (if ever needed) ---------------------
-# install.packages("someExtraPkg", lib = local_lib)
-# devtools::install_github("user/anotherPkg", lib = local_lib)
-
 cat("\n🎉 installer.R finished successfully\n")
+
+# ----------------------------------------------------------------
+# To install additional packages later, use e.g.:
+# install.packages("someExtraPkg", lib = local_lib)
+# ----------------------------------------------------------------
