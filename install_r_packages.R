@@ -25,8 +25,9 @@ options(
 
 ## 3. Core packages (CRAN / R‑Universe) --------------------------
 core_pkgs <- c(
-  "DatabaseConnector",
+  "rmarkdown",
   "SqlRender",
+  "DatabaseConnector",
   "arrow",
   "CommonDataModel"
 )
