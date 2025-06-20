@@ -36,7 +36,11 @@ services:
   # One-shot CDM loader ➜ Up (healthy) after ETL
   # ───────────────────────────────
   cdm_loader:
-    build: .
+    build: 
+      context: .
+      platforms:
+        - linux/amd64
+        - linux/arm64
     depends_on:
       db:
         condition: service_healthy          # wait for DB health first
