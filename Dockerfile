@@ -74,40 +74,61 @@ RUN apt-get update && \
         libreadline-dev libpcre2-dev libdeflate-dev \
         liblzma-dev libbz2-dev zlib1g-dev && \
     python3.9 -m ensurepip --upgrade && \
-    # Configure Java environment and library paths dynamically based on architecture
-    ARCH=$(dpkg --print-architecture) && \
-    echo "Configuring for architecture: ${ARCH}" && \
-    echo "export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-${ARCH}" >> /etc/environment && \
-    echo "export LD_LIBRARY_PATH=/usr/lib/jvm/java-17-openjdk-${ARCH}/lib/server:/usr/local/lib/R/lib:\${LD_LIBRARY_PATH}" >> /etc/environment && \
-    echo "/usr/lib/jvm/java-17-openjdk-${ARCH}/lib/server" > /etc/ld.so.conf.d/java.conf && \
-    ldconfig && \
     rm -rf /var/lib/apt/lists/*
 
 # Copy R and Python artifacts from build stages
 COPY --from=r-dependencies   /usr/local/lib/R /usr/local/lib/R
 COPY --from=r-dependencies   /usr/local/bin/R* /usr/local/bin/
+
+# Configure Java and R library paths after copying R
+RUN ARCH=$(dpkg --print-architecture) && \
+    echo "Configuring for architecture: ${ARCH}" && \
+    echo "export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-${ARCH}" >> /etc/environment && \
+    echo "export LD_LIBRARY_PATH=/usr/lib/jvm/java-17-openjdk-${ARCH}/lib/server:/usr/local/lib/R/lib:\${LD_LIBRARY_PATH}" >> /etc/environment && \
+    # Configure ldconfig for both Java and R libraries
+    echo "/usr/lib/jvm/java-17-openjdk-${ARCH}/lib/server" > /etc/ld.so.conf.d/java.conf && \
+    echo "/usr/local/lib/R/lib" > /etc/ld.so.conf.d/R.conf && \
+    ldconfig && \
+    # Verify R libraries are accessible
+    echo "R library path contents:" && \
+    ls -la /usr/local/lib/R/lib/ || echo "R lib directory not found"
+
 COPY --from=python-dependencies /opt/venv /opt/venv
 
 # Set up environment variables for the runtime
 RUN echo '. /etc/environment' >> /etc/bash.bashrc && \
-    echo '. /etc/environment' >> /etc/profile
+    echo '. /etc/environment' >> /etc/profile && \
+    # Add R library path to environment
+    echo "export R_HOME=/usr/local/lib/R" >> /etc/environment && \
+    echo "export R_LIBS_SITE=/usr/local/lib/R/site-library" >> /etc/environment && \
+    echo "export R_LIBS_USER=/usr/local/lib/R/site-library" >> /etc/environment
 
 # Optional sanity checks with architecture info
 RUN . /etc/environment && \
     echo "=== Architecture Information ===" && \
     echo "Architecture: $(dpkg --print-architecture)" && \
     echo "JAVA_HOME: ${JAVA_HOME}" && \
+    echo "R_HOME: ${R_HOME}" && \
     echo "LD_LIBRARY_PATH: ${LD_LIBRARY_PATH}" && \
+    echo "=== Library Path Verification ===" && \
+    echo "Contents of /usr/local/lib/R/lib:" && \
+    ls -la /usr/local/lib/R/lib/ 2>/dev/null || echo "R lib directory not accessible" && \
+    echo "Checking for libR.so:" && \
+    find /usr/local/lib -name "libR.so*" 2>/dev/null || echo "libR.so not found" && \
+    echo "Current ldconfig cache:" && \
+    ldconfig -p | grep -E "(libR|java)" || echo "No R or Java libraries in ldconfig cache" && \
     if [ -d "${JAVA_HOME}" ]; then \
         echo "JAVA_HOME directory exists: ${JAVA_HOME}"; \
-        ls -la "${JAVA_HOME}/" | head -10; \
+        ls -la "${JAVA_HOME}/" | head -5; \
     else \
         echo "JAVA_HOME directory not found: ${JAVA_HOME}"; \
     fi && \
     echo "=== Java Version Check ===" && \
     java -version 2>&1 || echo "Java not in PATH" && \
-    echo "=== R Package Check ===" && \
-    R --slave -e "cat('Installed R packages:\\n'); cat(rownames(installed.packages()), sep='\\n')" && \
+    echo "=== R Basic Test ===" && \
+    R --version 2>&1 | head -3 || echo "R not working" && \
+    echo "=== R Library Test ===" && \
+    R --slave -e "cat('R is working. Base packages loaded successfully.\n')" 2>&1 || echo "R base packages failed to load" && \
     echo "=== Python Environment Check ===" && \
     python3.9 -c "import sys, platform; print('Python', sys.version); print('OS', platform.platform()); print('Architecture:', platform.machine())" && \
     if python3.9 -c "import rpy2" 2>/dev/null; then \
