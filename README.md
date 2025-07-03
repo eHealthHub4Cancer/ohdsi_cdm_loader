@@ -1,6 +1,8 @@
-# OHDSI CDM Loader
+# 🎯OHDSI CDM Loader
 
-This repository provides a small Python package for loading OHDSI Common Data Model (CDM) vocabularies and Synthea data into a relational database.  It uses `rpy2` to call R packages from Python so that existing OHDSI tools can be reused from within Python workflows.
+The OHDSI CDM Vocabulary Loader is a lightweight, Dockerized container designed to load OHDSI Common Data Model (CDM) vocabularies ***version 5.4 or version 5.3*** into a PostgreSQL database. By leveraging `rpy2` for Python-R integration, it seamlessly utilizes OHDSI’s R packages (DatabaseConnector and SqlRender) within Python workflows, enabling efficient and reliable vocabulary loading. This tool is ideal for researchers, data scientists, and healthcare analysts working with the OHDSI CDM for observational health research.
+
+We **strongly recommend** using the Docker setup to ensure a consistent environment, simplify dependency management, and avoid configuration conflicts.
 
 ## Repository Structure
 
@@ -9,9 +11,10 @@ ohdsicdm_loader/
 ├── db_connector.py  - Database connection helpers using R DatabaseConnector
 ├── load_csv.py      - Bulk load utilities for CSV files
 ├── __init__.py
+driver/
 main.py              - Example script showing how to run the loader
 requirements.txt     - Python dependencies
-setup.py             - Package configuration
+launch.py            - call to docker container.
 ```
 
 ### `db_connector.py`
@@ -22,29 +25,6 @@ Contains `CSVLoader` for reading CSV or tab‑delimited files with pandas and in
 
 ### `main.py`
 Sample entry point that reads settings from environment variables, connects to the database and loads the vocabularies and Synthea data.
-
-## Installation
-
-1. Install the Python requirements:
-
-```bash
-pip install -r requirements.txt
-```
-
-2. Install the necessary R packages (via R or RStudio).  The included
-   `install_r_packages.R` script installs everything you need:
-
-```r
-source("install_r_packages.R")
-```
-
-The key packages are:
-
-- **DatabaseConnector** and **SqlRender** – core OHDSI database utilities.
-- **arrow** – for efficient data handling.
-- **devtools** – used to install GitHub packages.
-- **CommonDataModel** and **ETL-Synthea** from GitHub for DDL helpers and
-  Synthea ETL routines.
 
 ## Configuration
 
@@ -59,43 +39,31 @@ DB_NAME=aml_report
 DB_USER=postgres
 DB_PASSWORD=secret
 # Host paths (Windows)
-HOST_DRIVER_PATH=C:/Users/23434813/Desktop/AML_data/ohdsi
+HOST_DRIVER_PATH=C:/Users/23434813/Desktop/AML_data/ohdsi # This is optional.
 HOST_CSV_PATH=C:/Users/23434813/Desktop/latest_vocabularies/vocabulary_download_v5_2
 HOST_SYNTHEA_PATH=/path/to/synthea
 # Container paths
 DRIVER_PATH=/app/drivers
 CSV_PATH=/app/vocabulary
 SYNTHEA_CSV=/app/synthea
-DB_SCHEMA=public
+DB_SCHEMA=your_schema # optional. uses public if not set.
 CDM_VERSION=5.4
 SYNTHEA_VERSION=3.0
 SYNTHEA_SCHEMA=synthea_schema
 ```
 
-## Usage
-
-Once configured, run
-
-```bash
-python main.py
-```
-
-to connect to the database, create the CDM tables, load the CSV files and execute the additional ETL steps.
-
-### Docker
-
-The repository also contains a `docker-compose.yml` for running the loader and a
-Postgres database in containers. (**To avoid dependency issues, this is recommended**)
-
+## 💻 Usage
 1. Install Docker (for Windows/macOS you can download **Docker Desktop** from
    [docker.com](https://www.docker.com/products/docker-desktop)).
-2. Ensure the environment variables described above are available in a `.env`
-   file.
-3. Start the services with `python launch.py`:
 
-```bash
-python launch.py
-```
+2. Clone the repository using ```git clone https://github.com/eHealthHub4Cancer/ohdsi_cdm_loader.git```
+3. Navigate to the project folder using ```cd ohdsi_cdm_loader```
+4. Start the docker desktop you initially installed.
+5. Ensure the environment variables described above are available in a `.env` file.
+6. run the application using ```python launch.py```
+
+
+The repository contains a `docker-compose.yml` for running the loader and a Postgres database in containers.
 
 This convenience script runs `docker compose up -d --await`, once complete it shows a healthy state for the containers.
 
@@ -105,27 +73,30 @@ This convenience script runs `docker compose up -d --await`, once complete it sh
  ✔ Network ohdsi_cdm_csv_loader_default         Created                                                               0.1s 
  ✔ Volume "ohdsi_cdm_csv_loader_postgres_data"  Created                                                               0.0s 
  ✔ Container ohdsi_cdm_csv_loader-db-1          Healthy                                                               6.9s 
- ✔ Container ohdsi_cdm_csv_loader-cdm_loader-1  Healthy                                                            1169.8s 
-
+ ✔ Container ohdsi_cdm_csv_loader-cdm_loader-1  Healthy                                                            1169.8s
  ```
+
+<img src="./samples/loader.png" alt="OHDSI Logo" width="600">
 
 If you prefer to run Compose manually simply execute `docker compose up -d --await`
 instead.
 
-## Next Steps
+## 💡 Next Steps
 
 - Inspect `db_connector.py` and `load_csv.py` to see how Python and R work together.
 - Tune the batch size and pool settings in `CSVLoader` for your database environment.
 - Review the [OHDSI CDM documentation](https://ohdsi.github.io/CommonDataModel/) for schema details.
 
-## Credits
+## 🏆 Credits 
 
-This project is part of the OHDSI community tools and was developed with support from the eHealth Hub Limerick.
+This project is part of the [OHDSI](https://ohdsi.org) and was developed with support from the [eHealth Hub](https://ehealth4cancer.ie).
 
-## Contributing
+## 👥 Contributing
 
 Contributions are very welcome! Feel free to open issues or pull requests if you have ideas for improvements or run into problems. The goal is to keep the loader simple and useful for anyone working with the OHDSI CDM.
 
-## License
+## 🌟 Acknowledgement
+<img src="./samples/ehealth.png" alt="OHDSI Logo" width="100">
 
-MIT
+<img src="./samples/nsrp.png" alt="OHDSI Logo" width="150">
+
