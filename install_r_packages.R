@@ -56,8 +56,3 @@ cat("\nInstalled packages in ", local_lib, ":\n", sep = "")
 print(installed.packages(lib.loc = local_lib)[, c("Package", "Version")])
 
 cat("\n🎉 installer.R finished successfully\n")
-
-# ----------------------------------------------------------------
-# To install additional packages later, use e.g.:
-# install.packages("someExtraPkg", lib = local_lib)
-# ----------------------------------------------------------------

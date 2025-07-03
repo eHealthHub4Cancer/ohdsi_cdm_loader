@@ -111,5 +111,4 @@ def main():
             print(f"Warning: Could not close database connection: {e}")
 
 if __name__ == "__main__":
-    main()
-    
+    main()    

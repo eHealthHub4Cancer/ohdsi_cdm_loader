@@ -250,5 +250,3 @@ class DatabaseHandler:
             logging.info(f"CDM schema '{schema}' created successfully.")
         except Exception as e:
             raise Exception(f"Error creating CDM schema '{schema}': {e}")
-        
-   
