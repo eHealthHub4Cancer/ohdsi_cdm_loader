@@ -52,6 +52,8 @@ SYNTHEA_VERSION=3.0
 SYNTHEA_SCHEMA=synthea_schema
 ```
 
+- you can download the vocabularies from **[athena](https://athena.ohdsi.org/search-terms/start)**
+
 ## 💻 Usage
 1. Install Docker (for Windows/macOS you can download **Docker Desktop** from
    [docker.com](https://www.docker.com/products/docker-desktop)).
