@@ -18,13 +18,13 @@ launch.py            - call to docker container.
 ```
 
 ### `db_connector.py`
-Defines `DatabaseHandler` which opens a connection to the database via R's `DatabaseConnector`.  It can execute DDL scripts, create Synthea tables, and run post‑load routines such as building indexes or loading events.
+Defines `DatabaseHandler` which opens a connection to the database via R's `DatabaseConnector`.  It can execute DDL scripts, and run post‑load routines such as building indexes or loading events.
 
 ### `load_csv.py`
 Contains `CSVLoader` for reading CSV or tab‑delimited files with pandas and inserting the rows in batches using `pg_bulk_loader`.
 
 ### `main.py`
-Sample entry point that reads settings from environment variables, connects to the database and loads the vocabularies and Synthea data.
+Sample entry point that reads settings from environment variables, connects to the database and loads the vocabularies.
 
 ## Configuration
 
@@ -99,4 +99,3 @@ Contributions are very welcome! Feel free to open issues or pull requests if you
 <img src="./samples/ehealth.png" alt="OHDSI Logo" width="100">
 
 <img src="./samples/nsrp.png" alt="OHDSI Logo" width="150">
-
