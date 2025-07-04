@@ -60,11 +60,9 @@ services:
       CDM_VERSION: ${CDM_VERSION}
       SYNTHEA_VERSION: ${SYNTHEA_VERSION}
       SYNTHEA_SCHEMA: ${SYNTHEA_SCHEMA}
-      SYNTHEA_CSV: ${SYNTHEA_CSV}
     volumes:
-      - ${HOST_DRIVER_PATH:-./driver/}:${DRIVER_PATH}
+      - ${HOST_DRIVER_PATH:-./drivers}:${DRIVER_PATH}
       - ${HOST_CSV_PATH}:${CSV_PATH}
-      - ${HOST_SYNTHEA_PATH}:${SYNTHEA_CSV}
 
     # Run ETL → drop a flag file → idle forever
     command:

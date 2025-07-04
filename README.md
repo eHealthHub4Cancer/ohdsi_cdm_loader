@@ -38,18 +38,15 @@ DB_PORT=5119
 DB_NAME=aml_report
 DB_USER=postgres
 DB_PASSWORD=secret
-# Host paths (Windows)
+
+# Host paths
 HOST_DRIVER_PATH=C:/Users/23434813/Desktop/AML_data/ohdsi # This is optional.
 HOST_CSV_PATH=C:/Users/23434813/Desktop/latest_vocabularies/vocabulary_download_v5_2
-HOST_SYNTHEA_PATH=/path/to/synthea
-# Container paths
+DB_SCHEMA=your_schema # optional. uses public if not set.
+
+# Container paths-- Please do not edit these variables. Leave them this way!
 DRIVER_PATH=/app/drivers
 CSV_PATH=/app/vocabulary
-SYNTHEA_CSV=/app/synthea
-DB_SCHEMA=your_schema # optional. uses public if not set.
-CDM_VERSION=5.4
-SYNTHEA_VERSION=3.0
-SYNTHEA_SCHEMA=synthea_schema
 ```
 
 - you can download the vocabularies from **[athena](https://athena.ohdsi.org/search-terms/start)**
