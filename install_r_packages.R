@@ -23,6 +23,10 @@ options(
   install.packages.compile.from.source = "ifneeded"  # binary first, else source
 )
 
+cat("Installing rJava with custom configuration...\n")
+install.packages("rJava", lib = local_lib, configure.args = "--disable-jri", 
+                dependencies = TRUE)
+
 ## 3. Core packages (CRAN / R‑Universe) --------------------------
 core_pkgs <- c(
   "rmarkdown",
@@ -39,10 +43,6 @@ if (nzchar(install2)) {
   install.packages(core_pkgs, lib = local_lib, dependencies = TRUE)
 }
 
-## 3.5. Install rJava with special configuration -----------------
-cat("Installing rJava with custom configuration...\n")
-install.packages("rJava", lib = local_lib, configure.args = "--disable-jri", 
-                dependencies = TRUE)
 ## 4. Sanity check -----------------------------------------------
 required <- c("DatabaseConnector", "SqlRender")
 missing  <- required[!vapply(required, requireNamespace, logical(1), quietly = TRUE)]
