@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1
-
 ########################
 # Stage 1 – build base #
 ########################
@@ -20,7 +18,15 @@ RUN apt-get update && \
         openjdk-17-jdk-headless \
         libicu-dev \
         python3.9 python3.9-venv python3.9-dev \
-        build-essential && \
+        build-essential \
+        cmake \
+        g++ \
+        make \
+        libboost-dev \
+        libprotobuf-dev \
+        zlib1g-dev \
+        libssl-dev \
+        libcurl4-openssl-dev && \
     python3.9 -m ensurepip --upgrade && \
     # Set JAVA_HOME after JDK installation based on detected architecture
     ARCH=$(dpkg --print-architecture) && \

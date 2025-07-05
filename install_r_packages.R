@@ -31,7 +31,7 @@ install.packages("rJava", lib = local_lib, configure.args = "--disable-jri",
 core_pkgs <- c(
   "rmarkdown",
   "SqlRender",
-   "arrow",
+  "arrow",
   "DatabaseConnector",
   "CommonDataModel"
 )
@@ -54,5 +54,14 @@ cat("✅ All critical packages are present\n")
 ## 5. Summary -----------------------------------------------------
 cat("\nInstalled packages in ", local_lib, ":\n", sep = "")
 print(installed.packages(lib.loc = local_lib)[, c("Package", "Version")])
-
+# Ensure arrow works for arm64
+if (grepl("arm64", R.version$arch)) {
+  cat("\nDetected arm64 architecture. Ensuring 'arrow' compatibility...\n")
+  tryCatch({
+    install.packages("arrow", type = "source", lib = local_lib)
+    cat("\n'arrow' installed successfully for arm64.\n")
+  }, error = function(e) {
+    cat("\nFailed to install 'arrow' for arm64: ", e$message, "\n")
+  })
+}
 cat("\n🎉 installer.R finished successfully\n")
