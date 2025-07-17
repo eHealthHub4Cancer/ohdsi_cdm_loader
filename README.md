@@ -1,4 +1,4 @@
-# 🎯OHDSI CDM Loader
+# OHDSI CDM Loader
 
 The OHDSI CDM Vocabulary Loader is a lightweight, Dockerized container designed to load OHDSI Common Data Model (CDM) vocabularies ***version 5.4 or version 5.3*** into a PostgreSQL database. By leveraging `rpy2` for Python-R integration, it seamlessly utilizes OHDSI’s R packages (DatabaseConnector and SqlRender) within Python workflows, enabling efficient and reliable vocabulary loading. This tool is ideal for researchers, data scientists, and healthcare analysts working with the OHDSI CDM for observational health research.
 
@@ -51,7 +51,7 @@ CSV_PATH=/app/vocabulary
 
 - you can download the vocabularies from **[athena](https://athena.ohdsi.org/search-terms/start)**
 
-## 💻 Usage
+## Usage
 1. Install Docker (for Windows/macOS you can download **Docker Desktop** from
    [docker.com](https://www.docker.com/products/docker-desktop)).
 
@@ -80,21 +80,21 @@ This convenience script runs `docker compose up -d --await`, once complete it sh
 If you prefer to run Compose manually simply execute `docker compose up -d --await`
 instead.
 
-## 💡 Next Steps
+## Next Steps
 
 - Inspect `db_connector.py` and `load_csv.py` to see how Python and R work together.
 - Tune the batch size and pool settings in `CSVLoader` for your database environment.
 - Review the [OHDSI CDM documentation](https://ohdsi.github.io/CommonDataModel/) for schema details.
 
-## 🏆 Credits 
+## Credits 
 
 This project is part of the [OHDSI](https://ohdsi.org) and was developed with support from the [eHealth Hub](https://ehealth4cancer.ie).
 
-## 👥 Contributing
+## Contributing
 
 Contributions are very welcome! Feel free to open issues or pull requests if you have ideas for improvements or run into problems. The goal is to keep the loader simple and useful for anyone working with the OHDSI CDM.
 
-## 🌟 Acknowledgement
+## Acknowledgement
 <img src="./samples/ehealth.png" alt="OHDSI Logo" width="100">
 
 <img src="./samples/nsrp.png" alt="OHDSI Logo" width="150">
