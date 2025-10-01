@@ -202,6 +202,9 @@ class CSVLoader:
             None
         """
         table_order = table_order
+        # get all csv files in the folder path, and create a dictionary with the lower case of file name as key.
+        csv_files = [f for f in os.listdir(folder_path) if f.endswith('.csv')]
+        csv_mapping = {f.lower(): f for f in csv_files}
         file_to_table_mapping = {f"{table}.csv": table.lower() for table in table_order}
         missing_files = []
 
@@ -217,13 +220,13 @@ class CSVLoader:
 
 
         for table in table_order:
+            # not case sensitive
             filename = file_to_table_mapping.get(f'{table}.csv')
-            print(filename)
             if filename:
                 table_name = table.upper() if upper else table
                 self.db_connect.disable_foreign_key_checks(table_name)
-                print(f"Table: {table_name}") if upper else None
-                file_path = os.path.join(folder_path, f'{table_name}.csv')
+                table_path = csv_mapping.get(f'{table_name}.csv')
+                file_path = os.path.join(folder_path, table_path)
                 if os.path.exists(file_path):
                     try:
                         asyncio.run(self.load_csv_to_db(file_path, table_name, synthea=synthea, batch_size=batch_size))
